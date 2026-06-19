@@ -325,13 +325,6 @@ export default function NewRoutinePage() {
                     </option>
                   ))}
                 </select>
-                <span className="mt-2 block text-xs font-normal text-[#64748b]">
-                  {goal
-                    ? compatibleTemplates.length
-                      ? 'Se muestran plantillas activas del objetivo seleccionado. La rutina nueva copia la base y despues se edita sin cambiar la plantilla.'
-                      : 'No hay plantillas activas para este objetivo.'
-                    : 'Elegir un objetivo filtra las plantillas disponibles.'}
-                </span>
               </label>
               <label className="text-sm font-semibold text-[#334155]">
                 Dias por semana *
@@ -344,9 +337,6 @@ export default function NewRoutinePage() {
                   value={daysPerWeek}
                   onChange={(event) => setDaysPerWeek(event.target.value)}
                 />
-                <span className="mt-2 block text-xs font-normal text-[#64748b]">
-                  Se usa con las fechas para crear los dias del borrador.
-                </span>
               </label>
               <label className="text-sm font-semibold text-[#334155]">
                 Ejercicios por dia para IA *
@@ -358,9 +348,6 @@ export default function NewRoutinePage() {
                   value={exercisesPerDay}
                   onChange={(event) => setExercisesPerDay(event.target.value)}
                 />
-                <span className="mt-2 block text-xs font-normal text-[#64748b]">
-                  La IA debe respetar esta cantidad exacta en cada dia generado.
-                </span>
               </label>
               {trainingDayTotal !== null ? (
                 <div className="rounded-[8px] border border-[#d8eee0] bg-[#f4fbf6] px-4 py-3 text-sm text-[#14532d] sm:col-span-2">
