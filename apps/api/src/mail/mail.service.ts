@@ -28,19 +28,44 @@ export class MailService {
     const secure = this.config.get('SMTP_SECURE');
     const fromName = this.config.get('SMTP_FROM_NAME');
 
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: user && pass ? { user, pass } : undefined,
-    });
+    try {
+      const transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: user && pass ? { user, pass } : undefined,
+      });
 
-    await transporter.sendMail({
-      from: fromName ? `"${fromName}" <${from}>` : from,
-      to: input.to,
-      subject: input.subject,
-      text: input.text,
-      html: input.html,
-    });
+      await transporter.sendMail({
+        from: fromName ? `"${fromName}" <${from}>` : from,
+        to: input.to,
+        subject: input.subject,
+        text: input.text,
+        html: input.html,
+      });
+    } catch (error) {
+      throw new ServiceUnavailableException(this.deliveryErrorMessage(error));
+    }
+  }
+
+  private deliveryErrorMessage(error: unknown) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : '';
+    const responseCode =
+      error && typeof error === 'object' && 'responseCode' in error
+        ? Number((error as { responseCode?: unknown }).responseCode)
+        : null;
+
+    if (code === 'EAUTH' || responseCode === 535) {
+      return 'Transactional email authentication failed.';
+    }
+
+    if (code === 'ECONNECTION' || code === 'ETIMEDOUT' || code === 'ESOCKET') {
+      return 'Transactional email server is unreachable.';
+    }
+
+    return 'Transactional email delivery failed.';
   }
 }

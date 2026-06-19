@@ -561,7 +561,7 @@ export default function RoutineDetailPage() {
 
     const manualEmail = routine.student.email
       ? undefined
-      : window.prompt('Email del alumno');
+      : window.prompt('Email del alumno')?.trim();
 
     if (manualEmail === null) {
       return;

@@ -8,6 +8,16 @@ const optionalEmail = z.preprocess(
   (value) => (value === '' ? undefined : value),
   z.string().email().optional(),
 );
+const envBoolean = z.preprocess((value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return value;
+
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off', ''].includes(normalized)) return false;
+
+  return value;
+}, z.boolean());
 
 const envSchema = z.object({
   NODE_ENV: z
@@ -26,7 +36,7 @@ const envSchema = z.object({
   AI_MAX_CATALOG_ITEMS: z.coerce.number().int().positive().default(80),
   SMTP_HOST: optionalString,
   SMTP_PORT: z.coerce.number().int().positive().default(587),
-  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_SECURE: envBoolean.default(false),
   SMTP_USER: optionalString,
   SMTP_PASS: optionalString,
   SMTP_FROM_EMAIL: optionalEmail,
