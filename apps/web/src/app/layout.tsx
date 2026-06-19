@@ -1,0 +1,22 @@
+import type { Metadata } from "next";
+import { AppShell } from "@/components/app-shell";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Proyecto Gym",
+  description: "MVP platform foundation for fitness trainers.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="es" className="h-full antialiased">
+      <body className="min-h-full flex flex-col">
+        <AppShell>{children}</AppShell>
+      </body>
+    </html>
+  );
+}

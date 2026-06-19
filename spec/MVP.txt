@@ -1,0 +1,215 @@
+Actúa como un equipo senior compuesto por:
+
+- Product Manager
+- Business Analyst (Analista Funcional)
+- UX Designer
+- Software Architect
+
+Tu objetivo es diseñar el MVP de una plataforma para entrenadores personales y gimnasios.
+
+IMPORTANTE:
+No generes código.
+No tomes decisiones por tu cuenta si contradicen los requisitos.
+Debes documentar el producto de forma profesional para que posteriormente pueda ser implementado por un equipo de desarrollo o por herramientas de IA como Codex.
+
+# CONTEXTO DEL PRODUCTO
+
+La plataforma está orientada EXCLUSIVAMENTE al ámbito fitness/gimnasio.
+
+NO es una plataforma de kinesiología.
+NO realiza diagnósticos médicos.
+NO prescribe tratamientos médicos.
+
+Sin embargo, debe contemplar:
+
+- lesiones anteriores
+- restricciones físicas
+- molestias recurrentes
+- limitaciones de movimiento
+
+para ayudar al entrenador a tomar mejores decisiones.
+
+La filosofía principal es:
+
+"La IA propone, el entrenador decide."
+
+La IA nunca debe modificar automáticamente una rutina sin aprobación del entrenador.
+
+# PROBLEMA A RESOLVER
+
+Los entrenadores suelen gestionar alumnos utilizando:
+
+- WhatsApp
+- Excel
+- PDFs
+- Notas personales
+- Memoria
+
+Esto genera:
+
+- pérdida de información
+- dificultad para hacer seguimiento
+- rutinas poco consistentes
+- mucho tiempo administrativo
+
+La plataforma debe centralizar toda esa información.
+
+# USUARIO PRINCIPAL
+
+Entrenador: personal trainer o profesor de gimnasio. Ambos son el mismo rol operativo dentro del sistema.
+
+# USUARIO FINAL
+
+Alumno.
+
+El alumno NO debe estar obligado a instalar una aplicación.
+
+El sistema debe funcionar aunque el alumno solo reciba la rutina.
+
+# PROPUESTA DE VALOR
+
+La plataforma almacena el historial deportivo del alumno y utiliza IA para generar propuestas de rutina personalizadas.
+
+La IA genera un borrador.
+
+El entrenador valida, modifica o aprueba.
+
+# PERFIL DEL ALUMNO
+
+El sistema debe almacenar:
+
+- nombre
+- edad
+- peso
+- altura
+- experiencia
+- objetivo
+
+Objetivos posibles:
+
+- hipertrofia
+- fuerza
+- pérdida de grasa
+- acondicionamiento físico
+
+También debe registrar:
+
+- lesiones anteriores
+- restricciones
+- ejercicios que generan molestias
+- observaciones del entrenador
+
+Ejemplos:
+
+- lesión de hombro en 2022
+- evitar press tras nuca
+- molestias en sentadilla profunda
+
+# CATÁLOGO DE EJERCICIOS
+
+Cada ejercicio debe incluir:
+
+- nombre
+- descripción
+- imagen
+- video
+- grupo muscular
+- equipamiento requerido
+- nivel de dificultad
+- observaciones
+
+La IA debe trabajar utilizando este catálogo.
+
+No debe inventar ejercicios.
+
+# GENERACIÓN DE RUTINAS
+
+La IA debe considerar:
+
+- objetivo
+- experiencia
+- disponibilidad semanal
+- historial
+- restricciones
+
+Debe generar:
+
+- ejercicios
+- series
+- repeticiones
+- descansos
+
+El entrenador siempre tiene la última palabra.
+
+Debe poder:
+
+- aprobar
+- modificar
+- reemplazar ejercicios
+- cambiar parámetros
+
+# ENTREGA DE RUTINAS
+
+El MVP debe contemplar:
+
+- PDF
+- Excel
+- enlace web
+
+La aplicación móvil NO es obligatoria para el MVP.
+
+# FEEDBACK DEL ALUMNO
+
+Al finalizar una rutina o sesión el alumno debe poder informar:
+
+1. Dificultad percibida
+   - Muy difícil
+   - Difícil
+   - Bien
+   - Fácil
+
+2. Cumplimiento
+   - Completa
+   - Parcial
+   - No realizada
+
+3. Molestias
+   - Ninguna
+   - Hombro
+   - Rodilla
+   - Espalda
+   - Otra
+
+4. Comentario opcional
+
+El feedback debe alimentar el historial del alumno.
+
+# FILOSOFÍA DEL PRODUCTO
+
+El verdadero valor del producto NO es generar rutinas.
+
+El verdadero valor es construir un historial deportivo inteligente del alumno para ayudar al entrenador a tomar mejores decisiones futuras.
+
+# TAREA
+
+Genera:
+
+1. Product Requirements Document (PRD)
+2. Alcance del MVP
+3. Casos de uso
+4. User Stories
+5. Flujos funcionales
+6. Modelo conceptual de datos
+7. Arquitectura de alto nivel
+8. Wireframes textuales
+9. Riesgos del producto
+10. Roadmap MVP → V2 → V3
+11. Métricas de éxito
+12. Supuestos a validar con entrenadores reales
+
+Debes cuestionar decisiones inconsistentes y señalar riesgos o puntos ambiguos cuando existan.
+
+La respuesta debe ser profesional y detallada, como si fuera presentada a un equipo de desarrollo que comenzará la implementación.
+```
+
+Este prompt ya está bastante cerca de un documento de descubrimiento de producto real. Con una respuesta buena, podrías usar el resultado como base para pedirle a otra IA que actúe como arquitecto, y después a Codex que empiece a construir el sistema.

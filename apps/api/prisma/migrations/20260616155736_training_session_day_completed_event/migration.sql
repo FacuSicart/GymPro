@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "StudentHistoryEventType" ADD VALUE 'TRAINING_SESSION_DAY_COMPLETED';

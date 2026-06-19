@@ -1,0 +1,24 @@
+{
+  "name": "proyecto-gym",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api --workspace api",
+    "dev:api": "npm run start:dev --workspace api",
+    "dev:web": "npm run dev --workspace web",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspace api",
+    "db:up": "docker compose up -d postgres pgadmin",
+    "db:down": "docker compose down",
+    "prisma:generate": "npm run prisma:generate --workspace api",
+    "prisma:migrate": "npm run prisma:migrate --workspace api"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,614 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum UserRole {
+  ADMIN
+  TRAINER
+}
+
+enum UserStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum StudentStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum StudentHistoryEventType {
+  STUDENT_CREATED
+  STUDENT_UPDATED
+  PROFILE_UPDATED
+  ROUTINE_CREATED
+  ROUTINE_UPDATED
+  ROUTINE_PUBLISHED
+  ROUTINE_ARCHIVED
+  TRAINING_SESSION_CREATED
+  TRAINING_SESSION_STARTED
+  TRAINING_SESSION_COMPLETED
+  TRAINING_SESSION_CANCELLED
+  TRAINING_SESSION_EXERCISE_UPDATED
+  TRAINING_SESSION_DAY_COMPLETED
+  TRAINING_FEEDBACK_SUBMITTED
+  TRAINING_FEEDBACK_DISCOMFORT_REPORTED
+  TRAINING_FEEDBACK_RECURRENT_DISCOMFORT_DETECTED
+}
+
+enum ExerciseApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ExerciseOperationalStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ExerciseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ExerciseGoal {
+  STRENGTH
+  HYPERTROPHY
+  MOBILITY
+  ENDURANCE
+  CONDITIONING
+}
+
+enum RoutineStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum RoutineTemplateStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum PublicRoutineLinkStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum TrainingSessionStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AiLogType {
+  ROUTINE_GENERATION
+}
+
+enum AiLogStatus {
+  SUCCESS
+  REJECTED_SCHEMA
+  REJECTED_RULES
+  ERROR
+}
+
+model Tenant {
+  id                   String                @id @default(uuid()) @db.Uuid
+  name                 String
+  status               TenantStatus          @default(ACTIVE)
+  users                User[]
+  students             Student[]
+  studentHistoryEvents StudentHistoryEvent[] @relation("StudentHistoryTenant")
+  routines             Routine[]
+  routineTemplates     RoutineTemplate[]
+  trainingSessions     TrainingSession[]
+  trainingFeedbacks    TrainingFeedback[]
+  aiLogs               AiLog[]
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  @@map("tenants")
+}
+
+model User {
+  id               String     @id @default(uuid()) @db.Uuid
+  tenantId         String     @map("tenant_id") @db.Uuid
+  providerUserId   String?    @unique @map("auth_provider_user_id")
+  passwordHash     String     @map("password_hash")
+  firstName        String     @map("first_name")
+  lastName         String     @map("last_name")
+  email            String     @unique
+  role             UserRole
+  status           UserStatus @default(PENDING_APPROVAL)
+  approvedAt       DateTime?  @map("approved_at")
+  approvedByUserId String?    @map("approved_by_user_id") @db.Uuid
+  rejectedAt       DateTime?  @map("rejected_at")
+  rejectedByUserId String?    @map("rejected_by_user_id") @db.Uuid
+  rejectionReason  String?    @map("rejection_reason")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  tenant                      Tenant                @relation(fields: [tenantId], references: [id])
+  approvedBy                  User?                 @relation("UserApprovals", fields: [approvedByUserId], references: [id])
+  approvedUsers               User[]                @relation("UserApprovals")
+  rejectedBy                  User?                 @relation("UserRejections", fields: [rejectedByUserId], references: [id])
+  rejectedUsers               User[]                @relation("UserRejections")
+  students                    Student[]             @relation("TrainerStudents")
+  studentHistoryEvents        StudentHistoryEvent[] @relation("StudentHistoryAuthor")
+  trainedStudentHistoryEvents StudentHistoryEvent[] @relation("StudentHistoryTrainer")
+  createdExercises            Exercise[]            @relation("ExerciseCreator")
+  reviewedExercises           Exercise[]            @relation("ExerciseReviewer")
+  routines                    Routine[]             @relation("RoutineTrainer")
+  routineTemplates            RoutineTemplate[]     @relation("RoutineTemplateTrainer")
+  routineVersions             RoutineVersion[]      @relation("RoutineVersionCreator")
+  createdPublicRoutineLinks   PublicRoutineLink[]   @relation("PublicRoutineLinkCreator")
+  revokedPublicRoutineLinks   PublicRoutineLink[]   @relation("PublicRoutineLinkRevoker")
+  trainingSessions            TrainingSession[]     @relation("TrainingSessionTrainer")
+  trainingFeedbacks           TrainingFeedback[]    @relation("TrainingFeedbackTrainer")
+  aiLogs                      AiLog[]               @relation("AiLogUser")
+
+  @@index([tenantId])
+  @@index([role, status])
+  @@map("users")
+}
+
+model Exercise {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  name                  String
+  description           String
+  primaryMuscleGroup    String                    @map("primary_muscle_group")
+  secondaryMuscleGroups String[]                  @default([]) @map("secondary_muscle_groups")
+  movementPattern       String                    @map("movement_pattern")
+  levels                ExerciseLevel[]           @default([])
+  equipmentNeeded       String                    @map("equipment_needed")
+  equipmentType         String                    @default("otro") @map("equipment_type")
+  goals                 ExerciseGoal[]            @default([])
+  technicalInstructions String                    @map("technical_instructions")
+  commonMistakes        String?                   @map("common_mistakes")
+  contraindications     String?
+  videoUrl              String?                   @map("video_url")
+  imageUrl              String?                   @map("image_url")
+  approvalStatus        ExerciseApprovalStatus    @default(PENDING) @map("approval_status")
+  operationalStatus     ExerciseOperationalStatus @default(INACTIVE) @map("operational_status")
+  createdByUserId       String                    @map("created_by_user_id") @db.Uuid
+  reviewedByUserId      String?                   @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt            DateTime?                 @map("reviewed_at")
+  rejectionReason       String?                   @map("rejection_reason")
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+
+  createdBy  User  @relation("ExerciseCreator", fields: [createdByUserId], references: [id])
+  reviewedBy User? @relation("ExerciseReviewer", fields: [reviewedByUserId], references: [id])
+  routineExercises RoutineExercise[]
+  routineTemplateExercises RoutineTemplateExercise[]
+
+  @@index([approvalStatus, operationalStatus])
+  @@index([primaryMuscleGroup])
+  @@index([equipmentType])
+  @@index([movementPattern])
+  @@index([createdByUserId])
+  @@map("exercises")
+}
+
+model Student {
+  id        String        @id @default(uuid()) @db.Uuid
+  tenantId  String        @map("tenant_id") @db.Uuid
+  trainerId String        @map("trainer_id") @db.Uuid
+  firstName String        @map("first_name")
+  lastName  String        @map("last_name")
+  email     String?
+  phone     String?
+  status    StudentStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id])
+  trainer       User                  @relation("TrainerStudents", fields: [trainerId], references: [id])
+  profile          StudentProfile?
+  historyEvents    StudentHistoryEvent[]
+  routines          Routine[]
+  trainingSessions  TrainingSession[]
+  trainingFeedbacks TrainingFeedback[]
+  aiLogs            AiLog[]
+
+  @@index([tenantId])
+  @@index([trainerId])
+  @@index([tenantId, trainerId])
+  @@map("students")
+}
+
+model StudentProfile {
+  id                    String   @id @default(uuid()) @db.Uuid
+  studentId             String   @unique @map("student_id") @db.Uuid
+  goal                  String?
+  experience            String?
+  age                   Int?
+  weightKg              Decimal? @map("weight_kg") @db.Decimal(5, 2)
+  heightCm              Decimal? @map("height_cm") @db.Decimal(5, 2)
+  previousPhysicalNotes String?  @map("previous_physical_notes")
+  restrictions          String?
+  recurrentDiscomforts  String?  @map("recurrent_discomforts")
+  observations          String?
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+model StudentHistoryEvent {
+  id              String                  @id @default(uuid()) @db.Uuid
+  studentId       String                  @map("student_id") @db.Uuid
+  tenantId        String                  @map("tenant_id") @db.Uuid
+  trainerId       String                  @map("trainer_id") @db.Uuid
+  createdByUserId String                  @map("created_by_user_id") @db.Uuid
+  type            StudentHistoryEventType
+  summary         String
+  metadata        Json?
+  createdAt       DateTime                @default(now()) @map("created_at")
+
+  student       Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tenant        Tenant  @relation("StudentHistoryTenant", fields: [tenantId], references: [id])
+  trainer       User    @relation("StudentHistoryTrainer", fields: [trainerId], references: [id])
+  createdByUser User    @relation("StudentHistoryAuthor", fields: [createdByUserId], references: [id])
+
+  @@index([studentId, createdAt])
+  @@index([tenantId])
+  @@index([trainerId])
+  @@map("student_history_events")
+}
+
+model Routine {
+  id          String        @id @default(uuid()) @db.Uuid
+  studentId   String        @map("student_id") @db.Uuid
+  trainerId   String        @map("trainer_id") @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  name        String
+  description String?
+  goal        ExerciseGoal?
+  daysPerWeek Int?          @map("days_per_week")
+  status      RoutineStatus @default(DRAFT)
+  startDate   DateTime?     @map("start_date") @db.Date
+  endDate     DateTime?     @map("end_date") @db.Date
+  version     Int           @default(0)
+  publishedAt DateTime?     @map("published_at")
+  archivedAt  DateTime?     @map("archived_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  student  Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  trainer  User             @relation("RoutineTrainer", fields: [trainerId], references: [id])
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  days     TrainingDay[]
+  versions RoutineVersion[]
+  publicLinks PublicRoutineLink[]
+  trainingSessions TrainingSession[]
+  trainingFeedbacks TrainingFeedback[]
+  aiLogs AiLog[]
+
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([trainerId])
+  @@index([status])
+  @@map("routines")
+}
+
+model RoutineTemplate {
+  id          String                @id @default(uuid()) @db.Uuid
+  trainerId   String                @map("trainer_id") @db.Uuid
+  tenantId    String                @map("tenant_id") @db.Uuid
+  name        String
+  description String?
+  goal        ExerciseGoal?
+  daysPerWeek Int?                  @map("days_per_week")
+  status      RoutineTemplateStatus @default(ACTIVE)
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  trainer User                  @relation("RoutineTemplateTrainer", fields: [trainerId], references: [id])
+  tenant  Tenant                @relation(fields: [tenantId], references: [id])
+  days    RoutineTemplateDay[]
+
+  @@index([tenantId])
+  @@index([trainerId])
+  @@index([status])
+  @@map("routine_templates")
+}
+
+model RoutineTemplateDay {
+  id         String   @id @default(uuid()) @db.Uuid
+  templateId String   @map("template_id") @db.Uuid
+  name       String
+  order      Int
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  template  RoutineTemplate            @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exercises RoutineTemplateExercise[]
+
+  @@unique([templateId, order])
+  @@index([templateId])
+  @@map("routine_template_days")
+}
+
+model RoutineTemplateExercise {
+  id               String   @id @default(uuid()) @db.Uuid
+  templateDayId    String   @map("template_day_id") @db.Uuid
+  exerciseId       String   @map("exercise_id") @db.Uuid
+  order            Int
+  sets             Int?
+  repetitions      String?
+  restSeconds      Int?     @map("rest_seconds")
+  intensity        String?
+  tempo            String?
+  rir              Int?
+  rpe              Int?
+  observations     String?
+  exerciseSnapshot Json?    @map("exercise_snapshot")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  templateDay RoutineTemplateDay @relation(fields: [templateDayId], references: [id], onDelete: Cascade)
+  exercise    Exercise           @relation(fields: [exerciseId], references: [id])
+
+  @@unique([templateDayId, order])
+  @@index([templateDayId])
+  @@index([exerciseId])
+  @@map("routine_template_exercises")
+}
+
+model TrainingDay {
+  id        String            @id @default(uuid()) @db.Uuid
+  routineId String            @map("routine_id") @db.Uuid
+  name      String
+  order     Int
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  routine   Routine           @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  exercises RoutineExercise[]
+
+  @@unique([routineId, order])
+  @@index([routineId])
+  @@map("training_days")
+}
+
+model RoutineExercise {
+  id              String      @id @default(uuid()) @db.Uuid
+  trainingDayId   String      @map("training_day_id") @db.Uuid
+  exerciseId      String      @map("exercise_id") @db.Uuid
+  order           Int
+  sets            Int?
+  repetitions     String?
+  restSeconds     Int?        @map("rest_seconds")
+  intensity       String?
+  tempo           String?
+  rir             Int?
+  rpe             Int?
+  observations    String?
+  exerciseSnapshot Json?      @map("exercise_snapshot")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  trainingDay TrainingDay @relation(fields: [trainingDayId], references: [id], onDelete: Cascade)
+  exercise    Exercise    @relation(fields: [exerciseId], references: [id])
+
+  @@unique([trainingDayId, order])
+  @@index([trainingDayId])
+  @@index([exerciseId])
+  @@map("routine_exercises")
+}
+
+model RoutineVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  routineId       String   @map("routine_id") @db.Uuid
+  version         Int
+  snapshot        Json
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  routine       Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  createdByUser User    @relation("RoutineVersionCreator", fields: [createdByUserId], references: [id])
+  trainingSessions TrainingSession[]
+  trainingFeedbacks TrainingFeedback[]
+
+  @@unique([routineId, version])
+  @@index([routineId])
+  @@map("routine_versions")
+}
+
+model PublicRoutineLink {
+  id              String                  @id @default(uuid()) @db.Uuid
+  routineId       String                  @map("routine_id") @db.Uuid
+  token           String                  @unique
+  status          PublicRoutineLinkStatus @default(ACTIVE)
+  createdByUserId String                  @map("created_by_user_id") @db.Uuid
+  revokedByUserId String?                 @map("revoked_by_user_id") @db.Uuid
+  revokedAt       DateTime?               @map("revoked_at")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  routine       Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  createdByUser User    @relation("PublicRoutineLinkCreator", fields: [createdByUserId], references: [id])
+  revokedByUser User?   @relation("PublicRoutineLinkRevoker", fields: [revokedByUserId], references: [id])
+  trainingFeedbacks TrainingFeedback[]
+
+  @@index([routineId])
+  @@index([status])
+  @@map("public_routine_links")
+}
+
+model TrainingSession {
+  id               String                @id @default(uuid()) @db.Uuid
+  tenantId         String                @map("tenant_id") @db.Uuid
+  studentId        String                @map("student_id") @db.Uuid
+  trainerId        String                @map("trainer_id") @db.Uuid
+  routineId        String                @map("routine_id") @db.Uuid
+  routineVersionId String                @map("routine_version_id") @db.Uuid
+  status           TrainingSessionStatus @default(PLANNED)
+  scheduledDate    DateTime?             @map("scheduled_date") @db.Date
+  startedAt        DateTime?             @map("started_at")
+  completedAt      DateTime?             @map("completed_at")
+  cancelledAt      DateTime?             @map("cancelled_at")
+  notes            String?
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+
+  tenant         Tenant               @relation(fields: [tenantId], references: [id])
+  student        Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  trainer        User                 @relation("TrainingSessionTrainer", fields: [trainerId], references: [id])
+  routine        Routine              @relation(fields: [routineId], references: [id])
+  routineVersion RoutineVersion       @relation(fields: [routineVersionId], references: [id])
+  days           TrainingSessionDay[]
+  feedbacks      TrainingFeedback[]
+
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([trainerId])
+  @@index([routineId])
+  @@index([status])
+  @@map("training_sessions")
+}
+
+model TrainingSessionDay {
+  id                String    @id @default(uuid()) @db.Uuid
+  trainingSessionId String    @map("training_session_id") @db.Uuid
+  name              String
+  order             Int
+  completedAt       DateTime? @map("completed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  trainingSession TrainingSession            @relation(fields: [trainingSessionId], references: [id], onDelete: Cascade)
+  exercises       TrainingSessionExercise[]
+  feedback        TrainingFeedback?
+
+  @@unique([trainingSessionId, order])
+  @@index([trainingSessionId])
+  @@map("training_session_days")
+}
+
+model TrainingSessionExercise {
+  id                      String   @id @default(uuid()) @db.Uuid
+  trainingSessionDayId    String   @map("training_session_day_id") @db.Uuid
+  order                   Int
+  exerciseName            String   @map("exercise_name")
+  exerciseVideoUrl        String?  @map("exercise_video_url")
+  exerciseImageUrl        String?  @map("exercise_image_url")
+  routineExerciseSnapshot Json     @map("routine_exercise_snapshot")
+  plannedSets             Int?     @map("planned_sets")
+  plannedRepetitions      String?  @map("planned_repetitions")
+  plannedRestSeconds      Int?     @map("planned_rest_seconds")
+  plannedIntensity        String?  @map("planned_intensity")
+  plannedTempo            String?  @map("planned_tempo")
+  plannedRir              Int?     @map("planned_rir")
+  plannedRpe              Int?     @map("planned_rpe")
+  completed               Boolean  @default(false)
+  actualSets              Int?     @map("actual_sets")
+  actualRepetitions       String?  @map("actual_repetitions")
+  actualLoad              String?  @map("actual_load")
+  actualRestSeconds       Int?     @map("actual_rest_seconds")
+  actualRir               Int?     @map("actual_rir")
+  actualRpe               Int?     @map("actual_rpe")
+  trainerNotes            String?  @map("trainer_notes")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  trainingSessionDay TrainingSessionDay @relation(fields: [trainingSessionDayId], references: [id], onDelete: Cascade)
+
+  @@unique([trainingSessionDayId, order])
+  @@index([trainingSessionDayId])
+  @@map("training_session_exercises")
+}
+
+model TrainingFeedback {
+  id                    String   @id @default(uuid()) @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
+  studentId             String   @map("student_id") @db.Uuid
+  trainerId             String   @map("trainer_id") @db.Uuid
+  routineId             String   @map("routine_id") @db.Uuid
+  routineVersionId      String   @map("routine_version_id") @db.Uuid
+  trainingSessionId     String   @map("training_session_id") @db.Uuid
+  trainingSessionDayId  String   @unique @map("training_session_day_id") @db.Uuid
+  publicRoutineLinkId   String?  @map("public_routine_link_id") @db.Uuid
+  difficultyScore       Int      @map("difficulty_score")
+  energyScore           Int      @map("energy_score")
+  completedWorkout      Boolean  @map("completed_workout")
+  incompleteReason      String?  @map("incomplete_reason")
+  hadDiscomfort         Boolean  @map("had_discomfort")
+  discomfortArea        String?  @map("discomfort_area")
+  discomfortIntensity   Int?     @map("discomfort_intensity")
+  discomfortDescription String?  @map("discomfort_description")
+  generalComment        String?  @map("general_comment")
+  submittedAt           DateTime @default(now()) @map("submitted_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  student           Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  trainer           User               @relation("TrainingFeedbackTrainer", fields: [trainerId], references: [id])
+  routine           Routine            @relation(fields: [routineId], references: [id])
+  routineVersion    RoutineVersion     @relation(fields: [routineVersionId], references: [id])
+  trainingSession   TrainingSession    @relation(fields: [trainingSessionId], references: [id], onDelete: Cascade)
+  trainingSessionDay TrainingSessionDay @relation(fields: [trainingSessionDayId], references: [id], onDelete: Cascade)
+  publicRoutineLink PublicRoutineLink? @relation(fields: [publicRoutineLinkId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([trainerId])
+  @@index([routineId])
+  @@index([trainingSessionId])
+  @@map("training_feedback")
+}
+
+model AiLog {
+  id              String      @id @default(uuid()) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  userId          String      @map("user_id") @db.Uuid
+  studentId       String?     @map("student_id") @db.Uuid
+  routineId       String?     @map("routine_id") @db.Uuid
+  type            AiLogType
+  status          AiLogStatus
+  model           String
+  promptVersion   String      @map("prompt_version")
+  strategyVersion String      @map("strategy_version")
+  inputSummary    Json?       @map("input_summary")
+  outputSummary   Json?       @map("output_summary")
+  error           String?
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  user    User     @relation("AiLogUser", fields: [userId], references: [id])
+  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  routine Routine? @relation(fields: [routineId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([studentId])
+  @@index([routineId])
+  @@index([type, status])
+  @@map("ai_logs")
+}
