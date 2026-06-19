@@ -501,7 +501,6 @@ const knownApiMessages: Record<string, string> = {
   'AI provider quota exceeded.': 'La cuenta de OpenAI no tiene cuota disponible. Revisá billing o agregá crédito.',
   'AI provider rate limit exceeded.': 'OpenAI limito temporalmente la solicitud. Intentá de nuevo en unos minutos.',
   'AI provider request failed.': 'No pudimos completar la generacion con IA. Intentá de nuevo.',
-  'AI provider request timed out.': 'La generacion con IA tardo demasiado. Intentá de nuevo con menos ejercicios o espera unos segundos.',
   'AI response did not include structured routine output.': 'La IA no devolvio una rutina estructurada. Intentá de nuevo.',
   'AI response did not match the expected routine structure.': 'La IA devolvio una rutina incompleta. Intentá de nuevo.',
   'AI routine day count does not match the request.': 'La IA no respeto la cantidad de dias solicitada. Intentá de nuevo.',

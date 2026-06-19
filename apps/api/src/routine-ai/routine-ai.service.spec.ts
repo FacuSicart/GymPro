@@ -56,7 +56,6 @@ describe('RoutineAiService', () => {
           OPENAI_API_KEY: 'test-key',
           AI_MODEL_ROUTINE_GENERATION: 'test-model',
           AI_MAX_CATALOG_ITEMS: 80,
-          AI_REQUEST_TIMEOUT_MS: 30000,
         };
         return values[key];
       }),

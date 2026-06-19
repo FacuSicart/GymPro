@@ -14,7 +14,6 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   AI_MODEL_ROUTINE_GENERATION: z.string().optional(),
   AI_MODEL_SUMMARY: z.string().optional(),
-  AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   AI_MAX_CATALOG_ITEMS: z.coerce.number().int().positive().default(80),
   SENTRY_DSN: z.string().optional(),
 });

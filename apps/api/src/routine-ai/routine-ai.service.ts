@@ -397,61 +397,45 @@ export class RoutineAiService {
     context: unknown,
     allowedExerciseIds: string[],
   ) {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.config.get('AI_REQUEST_TIMEOUT_MS'),
-    );
-
-    try {
-      const response = await fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model,
-          input: [
-            { role: 'system', content: this.systemPrompt() },
-            { role: 'user', content: JSON.stringify(context) },
-          ],
-          text: {
-            format: {
-              type: 'json_schema',
-              name: 'routine_ai_draft',
-              strict: true,
-              schema: this.responseJsonSchema(allowedExerciseIds),
-            },
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        input: [
+          { role: 'system', content: this.systemPrompt() },
+          { role: 'user', content: JSON.stringify(context) },
+        ],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'routine_ai_draft',
+            strict: true,
+            schema: this.responseJsonSchema(allowedExerciseIds),
           },
-        }),
-      });
+        },
+      }),
+    });
 
-      const rawText = await response.text();
-      if (!response.ok) {
-        throw new ServiceUnavailableException(
-          this.providerErrorMessage(response.status, rawText),
-        );
-      }
-
-      const parsed = JSON.parse(rawText) as Record<string, unknown>;
-      const outputText = this.extractOutputText(parsed);
-      if (!outputText) {
-        throw new BadRequestException(
-          'AI response did not include structured routine output.',
-        );
-      }
-
-      return JSON.parse(outputText) as unknown;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new ServiceUnavailableException('AI provider request timed out.');
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeout);
+    const rawText = await response.text();
+    if (!response.ok) {
+      throw new ServiceUnavailableException(
+        this.providerErrorMessage(response.status, rawText),
+      );
     }
+
+    const parsed = JSON.parse(rawText) as Record<string, unknown>;
+    const outputText = this.extractOutputText(parsed);
+    if (!outputText) {
+      throw new BadRequestException(
+        'AI response did not include structured routine output.',
+      );
+    }
+
+    return JSON.parse(outputText) as unknown;
   }
 
   private systemPrompt() {
