@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { ReactNode } from 'react';
 
-function LogoMark() {
+function LogoImage() {
   return (
-    <div className="flex h-11 w-11 items-center justify-center rounded-[8px] border border-[#78df35]/50 bg-[#78df35]/10 text-[#78df35] shadow-[0_0_28px_rgba(120,223,53,0.2)]">
-      <span className="text-xl font-black">G</span>
-    </div>
+    <img
+      alt="PROGYM"
+      className="h-32 w-auto object-contain sm:h-40 lg:h-48"
+      src="/progym-login-logo.png"
+    />
   );
 }
 
@@ -79,14 +81,11 @@ export function AuthShell({
 
         <div className="relative mx-auto grid min-h-screen w-full max-w-7xl items-center gap-10 px-6 py-8 sm:px-10 lg:grid-cols-[1fr_540px] lg:px-14">
           <section className="py-6 lg:py-12">
-            <Link className="inline-flex items-center gap-4" href="/login">
-              <LogoMark />
-              <span className="text-2xl font-black tracking-[0.18em]">
-                <span className="text-[#78df35]">PRO</span>GYM
-              </span>
+            <Link className="inline-flex w-fit items-center" href="/login" aria-label="Ir al login">
+              <LogoImage />
             </Link>
 
-            <div className="mt-14 max-w-xl lg:mt-20">
+            <div className="max-w-xl">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#78df35]">
                 {eyebrow}
               </p>

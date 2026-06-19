@@ -8,6 +8,8 @@ type SendMailInput = {
   subject: string;
   text: string;
   html: string;
+  fromName?: string;
+  replyTo?: string;
 };
 
 @Injectable()
@@ -26,7 +28,7 @@ export class MailService {
     const user = this.config.get('SMTP_USER');
     const pass = this.config.get('SMTP_PASS');
     const secure = this.config.get('SMTP_SECURE');
-    const fromName = this.config.get('SMTP_FROM_NAME');
+    const fromName = input.fromName ?? this.config.get('SMTP_FROM_NAME');
 
     try {
       const transporter = nodemailer.createTransport({
@@ -39,6 +41,7 @@ export class MailService {
       await transporter.sendMail({
         from: fromName ? `"${fromName}" <${from}>` : from,
         to: input.to,
+        replyTo: input.replyTo,
         subject: input.subject,
         text: input.text,
         html: input.html,

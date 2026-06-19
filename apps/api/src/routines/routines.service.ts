@@ -391,19 +391,22 @@ export class RoutinesService {
     }
 
     const publicUrl = this.buildPublicUrl(link.token);
+    const trainerName = `${routine.trainer.firstName} ${routine.trainer.lastName}`.trim();
     await this.mailService.sendMail({
       to: recipient,
+      fromName: `${trainerName} via Proyecto Gym`,
+      replyTo: routine.trainer.email,
       subject: `Tu rutina: ${routine.name}`,
       text: [
         `Hola ${routine.student.firstName},`,
         '',
-        `${routine.trainer.firstName} ${routine.trainer.lastName} te compartio una rutina.`,
+        `${trainerName} te compartio una rutina.`,
         '',
         `Abrila desde este enlace: ${publicUrl}`,
       ].join('\n'),
       html: [
         `<p>Hola ${this.escapeHtml(routine.student.firstName)},</p>`,
-        `<p>${this.escapeHtml(routine.trainer.firstName)} ${this.escapeHtml(routine.trainer.lastName)} te compartio una rutina.</p>`,
+        `<p>${this.escapeHtml(trainerName)} te compartio una rutina.</p>`,
         `<p><a href="${publicUrl}">Abrir rutina</a></p>`,
         `<p>Si el boton no funciona, copia este enlace:<br>${publicUrl}</p>`,
       ].join(''),

@@ -29,11 +29,13 @@ function Icon({
   );
 }
 
-function LogoMark() {
+function LogoImage({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex h-11 w-11 items-center justify-center rounded-[8px] bg-[#087a3d] text-white shadow-[0_18px_36px_rgba(8,122,61,0.18)]">
-      <span className="text-xl font-black">P</span>
-    </div>
+    <img
+      alt="PROGYM"
+      className={compact ? 'h-16 w-auto object-contain' : 'h-24 w-auto object-contain'}
+      src="/progym-dashboard-logo.png"
+    />
   );
 }
 
@@ -81,14 +83,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     <main className="min-h-screen bg-[#f8faf9] text-[#111827]">
       <div className="flex min-h-screen">
         <aside className="hidden w-[290px] shrink-0 border-r border-[#e2e8e2] bg-white px-6 py-9 lg:flex lg:flex-col">
-          <Link className="flex items-center gap-4" href="/dashboard">
-            <LogoMark />
-            <span className="text-xl font-black tracking-[0.14em] text-[#111827]">
-              <span className="text-[#087a3d]">PRO</span>GYM
-            </span>
+          <Link className="flex w-fit items-center" href="/dashboard" aria-label="Ir al dashboard">
+            <LogoImage />
           </Link>
 
-          <nav className="mt-16 space-y-3">
+          <nav className="mt-10 space-y-3">
             {navItems.map((item) => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
@@ -113,11 +112,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="min-w-0 flex-1">
           <header className="flex min-h-[102px] items-center justify-between border-b border-[#e2e8e2] bg-white px-5 sm:px-8 lg:px-11">
-            <Link className="flex items-center gap-3 lg:hidden" href="/dashboard">
-              <LogoMark />
-              <span className="text-lg font-black tracking-[0.12em] text-[#111827]">
-                <span className="text-[#087a3d]">PRO</span>GYM
-              </span>
+            <Link className="flex w-fit items-center lg:hidden" href="/dashboard" aria-label="Ir al dashboard">
+              <LogoImage compact />
             </Link>
             <div className="hidden lg:block" />
             <div className="flex items-center gap-5">
