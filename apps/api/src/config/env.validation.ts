@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+const optionalString = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.string().optional(),
+);
+const optionalEmail = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.string().email().optional(),
+);
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -11,11 +20,18 @@ const envSchema = z.object({
   DIRECT_DATABASE_URL: z.string().min(1).optional(),
   JWT_AUDIENCE: z.string().min(1).default('authenticated'),
   JWT_SECRET: z.string().min(32),
-  OPENAI_API_KEY: z.string().optional(),
-  AI_MODEL_ROUTINE_GENERATION: z.string().optional(),
-  AI_MODEL_SUMMARY: z.string().optional(),
+  OPENAI_API_KEY: optionalString,
+  AI_MODEL_ROUTINE_GENERATION: optionalString,
+  AI_MODEL_SUMMARY: optionalString,
   AI_MAX_CATALOG_ITEMS: z.coerce.number().int().positive().default(80),
-  SENTRY_DSN: z.string().optional(),
+  SMTP_HOST: optionalString,
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_USER: optionalString,
+  SMTP_PASS: optionalString,
+  SMTP_FROM_EMAIL: optionalEmail,
+  SMTP_FROM_NAME: optionalString,
+  SENTRY_DSN: optionalString,
 });
 
 export type Environment = z.infer<typeof envSchema>;

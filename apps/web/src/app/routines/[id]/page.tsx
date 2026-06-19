@@ -175,6 +175,7 @@ export default function RoutineDetailPage() {
   const [saving, setSaving] = useState(false);
   const [publicLink, setPublicLink] = useState<PublicRoutineLink | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
 
   const isArchived = routine?.status === 'ARCHIVED';
   const trainingDayTotal = useMemo(
@@ -555,6 +556,40 @@ export default function RoutineDetailPage() {
     setNotice('Link copiado.');
   }
 
+  async function sendPublicLinkEmail() {
+    if (!routine) return;
+
+    const manualEmail = routine.student.email
+      ? undefined
+      : window.prompt('Email del alumno');
+
+    if (manualEmail === null) {
+      return;
+    }
+
+    setEmailBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await apiFetch<{
+        sent: boolean;
+        email: string;
+        publicLink: PublicRoutineLink;
+      }>(`/routines/${params.id}/public-link/email`, {
+        method: 'POST',
+        body: JSON.stringify({
+          ...(manualEmail ? { email: manualEmail } : {}),
+        }),
+      });
+      setPublicLink(result.publicLink);
+      setNotice(`Email enviado a ${result.email}.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No se pudo enviar el email.');
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
   if (loading) {
     return <p className="rounded-[8px] border border-[#dfe5e1] bg-white px-4 py-3 text-sm text-[#64748b]">Cargando...</p>;
   }
@@ -631,9 +666,14 @@ export default function RoutineDetailPage() {
               <p className="mt-1 text-xs text-[#64748b]">Link compartible de la rutina activa.</p>
             </div>
             {!publicLink && user?.role === 'TRAINER' ? (
-              <button className="h-9 rounded-[8px] bg-[#087a3d] px-3 text-xs font-black text-white transition hover:bg-[#076b36] disabled:opacity-60" disabled={linkBusy} onClick={generatePublicLink} type="button">
-                {linkBusy ? 'Generando...' : 'Generar enlace'}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button className="h-9 rounded-[8px] bg-[#087a3d] px-3 text-xs font-black text-white transition hover:bg-[#076b36] disabled:opacity-60" disabled={linkBusy || emailBusy} onClick={generatePublicLink} type="button">
+                  {linkBusy ? 'Generando...' : 'Generar enlace'}
+                </button>
+                <button className="h-9 rounded-[8px] border border-[#087a3d] px-3 text-xs font-black text-[#087a3d] transition hover:bg-[#f4fbf6] disabled:opacity-60" disabled={linkBusy || emailBusy} onClick={sendPublicLinkEmail} type="button">
+                  {emailBusy ? 'Enviando...' : 'Enviar mail'}
+                </button>
+              </div>
             ) : null}
           </div>
           <div className="px-4 py-3">
@@ -648,6 +688,9 @@ export default function RoutineDetailPage() {
                   <div className="flex flex-wrap gap-2">
                     <button className="h-9 rounded-[8px] border border-[#d8dee6] px-3 text-xs font-black text-[#334155] transition hover:bg-[#f8faf9]" disabled={linkBusy} onClick={copyPublicLink} type="button">
                       Copiar link
+                    </button>
+                    <button className="h-9 rounded-[8px] border border-[#087a3d] px-3 text-xs font-black text-[#087a3d] transition hover:bg-[#f4fbf6]" disabled={linkBusy || emailBusy} onClick={sendPublicLinkEmail} type="button">
+                      {emailBusy ? 'Enviando...' : 'Enviar mail'}
                     </button>
                     <button className="h-9 rounded-[8px] border border-[#f3c5c1] px-3 text-xs font-black text-[#b3261e] transition hover:bg-[#fff7f7]" disabled={linkBusy} onClick={revokePublicLink} type="button">
                       Revocar

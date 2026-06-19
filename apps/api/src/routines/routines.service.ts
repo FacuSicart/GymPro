@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
   ExerciseApprovalStatus,
@@ -15,7 +16,9 @@ import {
   User,
   UserRole,
 } from '@prisma/client';
+import { Environment } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { CreateRoutineDto } from './dto/create-routine.dto';
 import { ListRoutinesQueryDto } from './dto/list-routines-query.dto';
 import { TrainingDayDto } from './dto/training-day.dto';
@@ -56,7 +59,11 @@ const publicLinkSelect = {
 
 @Injectable()
 export class RoutinesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService?: MailService,
+    private readonly config?: ConfigService<Environment, true>,
+  ) {}
 
   async listRoutines(user: User, query: ListRoutinesQueryDto) {
     const routines = await this.prisma.routine.findMany({
@@ -366,41 +373,47 @@ export class RoutinesService {
   async generatePublicLink(user: User, routineId: string) {
     const routine = await this.findTrainerOwnedRoutine(user, routineId);
 
-    if (routine.status !== RoutineStatus.ACTIVE) {
-      throw new BadRequestException(
-        'Only active routines can have a public link.',
-      );
-    }
-
-    if (!routine.versions.length) {
-      throw new BadRequestException(
-        'Routine must have a published snapshot before sharing.',
-      );
-    }
-
-    const existing = await this.prisma.publicRoutineLink.findFirst({
-      where: {
-        routineId: routine.id,
-        status: PublicRoutineLinkStatus.ACTIVE,
-      },
-      orderBy: { createdAt: 'desc' },
-      select: publicLinkSelect,
-    });
-
-    if (existing) {
-      return this.toPublicLinkResponse(existing);
-    }
-
-    const link = await this.prisma.publicRoutineLink.create({
-      data: {
-        routineId: routine.id,
-        token: this.generateToken(),
-        createdByUserId: user.id,
-      },
-      select: publicLinkSelect,
-    });
-
+    const link = await this.getOrCreateActivePublicLink(user, routine);
     return this.toPublicLinkResponse(link);
+  }
+
+  async sendPublicLinkEmail(user: User, routineId: string, email?: string) {
+    const routine = await this.findTrainerOwnedRoutine(user, routineId);
+    const link = await this.getOrCreateActivePublicLink(user, routine);
+    const recipient = this.normalizeOptionalEmail(email) ?? routine.student.email;
+
+    if (!recipient) {
+      throw new BadRequestException('Student email is required.');
+    }
+
+    if (!this.mailService) {
+      throw new BadRequestException('Transactional email is not configured.');
+    }
+
+    const publicUrl = this.buildPublicUrl(link.token);
+    await this.mailService.sendMail({
+      to: recipient,
+      subject: `Tu rutina: ${routine.name}`,
+      text: [
+        `Hola ${routine.student.firstName},`,
+        '',
+        `${routine.trainer.firstName} ${routine.trainer.lastName} te compartio una rutina.`,
+        '',
+        `Abrila desde este enlace: ${publicUrl}`,
+      ].join('\n'),
+      html: [
+        `<p>Hola ${this.escapeHtml(routine.student.firstName)},</p>`,
+        `<p>${this.escapeHtml(routine.trainer.firstName)} ${this.escapeHtml(routine.trainer.lastName)} te compartio una rutina.</p>`,
+        `<p><a href="${publicUrl}">Abrir rutina</a></p>`,
+        `<p>Si el boton no funciona, copia este enlace:<br>${publicUrl}</p>`,
+      ].join(''),
+    });
+
+    return {
+      sent: true,
+      email: recipient,
+      publicLink: this.toPublicLinkResponse(link),
+    };
   }
 
   async revokePublicLink(user: User, routineId: string) {
@@ -774,6 +787,63 @@ export class RoutinesService {
     const trimmed = value?.trim();
 
     return trimmed ? trimmed : null;
+  }
+
+  private normalizeOptionalEmail(value?: string | null) {
+    const trimmed = value?.trim().toLowerCase();
+
+    return trimmed ? trimmed : null;
+  }
+
+  private async getOrCreateActivePublicLink(user: User, routine: RoutineWithDetails) {
+    if (routine.status !== RoutineStatus.ACTIVE) {
+      throw new BadRequestException(
+        'Only active routines can have a public link.',
+      );
+    }
+
+    if (!routine.versions.length) {
+      throw new BadRequestException(
+        'Routine must have a published snapshot before sharing.',
+      );
+    }
+
+    const existing = await this.prisma.publicRoutineLink.findFirst({
+      where: {
+        routineId: routine.id,
+        status: PublicRoutineLinkStatus.ACTIVE,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: publicLinkSelect,
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.publicRoutineLink.create({
+      data: {
+        routineId: routine.id,
+        token: this.generateToken(),
+        createdByUserId: user.id,
+      },
+      select: publicLinkSelect,
+    });
+  }
+
+  private buildPublicUrl(token: string) {
+    const origin = this.config?.get('WEB_ORIGIN') ?? 'http://localhost:3000';
+
+    return `${origin.replace(/\/$/, '')}/r/${token}`;
+  }
+
+  private escapeHtml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   private generateToken() {

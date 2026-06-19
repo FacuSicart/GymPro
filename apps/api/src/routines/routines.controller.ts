@@ -21,6 +21,7 @@ import { CurrentUser } from '../auth/current-user';
 import { LocalJwtAuthGuard } from '../auth/local-jwt-auth.guard';
 import { CreateRoutineDto } from './dto/create-routine.dto';
 import { ListRoutinesQueryDto } from './dto/list-routines-query.dto';
+import { SendPublicLinkEmailDto } from './dto/send-public-link-email.dto';
 import { UpdateRoutineDto } from './dto/update-routine.dto';
 import { RoutinesService } from './routines.service';
 
@@ -102,6 +103,16 @@ export class RoutinesController {
   @ApiCreatedResponse({ description: 'Public link generated for an active routine.' })
   generatePublicLink(@CurrentUser() user: User, @Param('id') id: string) {
     return this.routinesService.generatePublicLink(user, id);
+  }
+
+  @Post(':id/public-link/email')
+  @ApiOkResponse({ description: 'Public routine link sent by email.' })
+  sendPublicLinkEmail(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: SendPublicLinkEmailDto,
+  ) {
+    return this.routinesService.sendPublicLinkEmail(user, id, dto.email);
   }
 
   @Patch(':id/public-link/revoke')

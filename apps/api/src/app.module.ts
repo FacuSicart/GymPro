@@ -6,6 +6,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PrismaModule } from './database/prisma.module';
 import { ExercisesModule } from './exercises/exercises.module';
 import { HealthModule } from './health/health.module';
+import { MailModule } from './mail/mail.module';
 import { RoutinesModule } from './routines/routines.module';
 import { RoutineAiModule } from './routine-ai/routine-ai.module';
 import { RoutineTemplatesModule } from './routine-templates/routine-templates.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     DashboardModule,
     UsersModule,
+    MailModule,
     StudentsModule,
     ExercisesModule,
     RoutinesModule,
