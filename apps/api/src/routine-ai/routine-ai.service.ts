@@ -380,7 +380,6 @@ export class RoutineAiService {
         primaryMuscleGroup: exercise.primaryMuscleGroup,
         secondaryMuscleGroups: exercise.secondaryMuscleGroups,
         movementPattern: exercise.movementPattern,
-        levels: exercise.levels,
         equipmentNeeded: exercise.equipmentNeeded,
         equipmentType: exercise.equipmentType,
         goals: exercise.goals,

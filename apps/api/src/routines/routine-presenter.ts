@@ -77,7 +77,6 @@ export function toPublicRoutine(routine: RoutineWithDetails) {
               movementPattern: item.exercise.movementPattern,
               equipmentNeeded: item.exercise.equipmentNeeded,
               equipmentType: item.exercise.equipmentType,
-              levels: item.exercise.levels,
               goals: item.exercise.goals,
               technicalInstructions: item.exercise.technicalInstructions,
               commonMistakes: item.exercise.commonMistakes,

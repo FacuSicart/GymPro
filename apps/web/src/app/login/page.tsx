@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { AuthShell } from '@/components/auth-shell';
-import { login, storeToken } from '@/lib/api';
+import { login } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,7 +20,6 @@ export default function LoginPage() {
 
     try {
       const response = await login(email, password);
-      storeToken(response.accessToken);
 
       if (!response.canAccessInternalApp) {
         router.push('/access-status');

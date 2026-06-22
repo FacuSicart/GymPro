@@ -14,6 +14,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { paginationArgs } from '../common/pagination-query.dto';
 import { TrainingDayDto } from '../routines/dto/training-day.dto';
 import { toPublicRoutines } from '../routines/routine-presenter';
 import { AssignRoutineTemplateDto } from './dto/assign-routine-template.dto';
@@ -65,6 +66,7 @@ export class RoutineTemplatesService {
       },
       include: routineTemplateInclude,
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      ...paginationArgs(query),
     });
 
     return toPublicRoutineTemplates(templates);

@@ -39,6 +39,8 @@ describe('UsersService', () => {
         role: UserRole.TRAINER,
       },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      skip: 0,
+      take: 100,
     });
   });
 
@@ -59,6 +61,8 @@ describe('UsersService', () => {
         status: UserStatus.ACTIVE,
       },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      skip: 0,
+      take: 100,
     });
   });
 

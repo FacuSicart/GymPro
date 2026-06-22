@@ -18,10 +18,10 @@ const statusTone: Record<RoutineStatus, string> = {
 
 const goalLabels: Record<string, string> = {
   STRENGTH: 'Fuerza',
-  HYPERTROPHY: 'Hipertrofia',
   MOBILITY: 'Movilidad',
-  ENDURANCE: 'Resistencia',
-  CONDITIONING: 'Acondicionamiento',
+  ENDURANCE: 'Cardio',
+  POWER: 'Potencia',
+  CORE: 'Core',
 };
 
 function buildQuery(filters: { studentId: string; status: string }) {

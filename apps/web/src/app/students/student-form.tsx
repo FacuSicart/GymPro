@@ -27,10 +27,10 @@ type FormState = {
 
 const goalOptions: Array<{ value: ExerciseGoal; label: string }> = [
   { value: 'STRENGTH', label: 'Fuerza' },
-  { value: 'HYPERTROPHY', label: 'Hipertrofia' },
   { value: 'MOBILITY', label: 'Movilidad' },
-  { value: 'ENDURANCE', label: 'Resistencia' },
-  { value: 'CONDITIONING', label: 'Acondicionamiento' },
+  { value: 'ENDURANCE', label: 'Cardio' },
+  { value: 'POWER', label: 'Potencia' },
+  { value: 'CORE', label: 'Core' },
 ];
 
 function initialState(student?: Student): FormState {

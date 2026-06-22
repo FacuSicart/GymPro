@@ -8,15 +8,16 @@ import {
   PublicLinkFeedbackStatus,
   PublicLinkTrainingSession,
   PublicLinkTrainingSessionExercise,
+  PublicRoutineExercise,
   PublicRoutinePayload,
 } from '@/lib/api';
 
 const goalLabels: Record<string, string> = {
   STRENGTH: 'Fuerza',
-  HYPERTROPHY: 'Hipertrofia',
   MOBILITY: 'Movilidad',
-  ENDURANCE: 'Resistencia',
-  CONDITIONING: 'Acondicionamiento',
+  ENDURANCE: 'Cardio',
+  POWER: 'Potencia',
+  CORE: 'Core',
 };
 
 type ExerciseDraft = {
@@ -89,6 +90,96 @@ function optionalText(value: string) {
 
 function optionalNumber(value: string) {
   return value.trim() ? Number(value) : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function textFromUnknown(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function getSnapshotExercise(item: PublicLinkTrainingSessionExercise): PublicRoutineExercise['exercise'] | null {
+  if (!isRecord(item.exerciseSnapshot)) return null;
+  const exercise = item.exerciseSnapshot.exercise;
+  if (!isRecord(exercise)) return null;
+
+  return {
+    name: textFromUnknown(exercise.name) ?? item.exerciseName,
+    description: textFromUnknown(exercise.description),
+    primaryMuscleGroup: textFromUnknown(exercise.primaryMuscleGroup),
+    movementPattern: textFromUnknown(exercise.movementPattern),
+    equipmentNeeded: textFromUnknown(exercise.equipmentNeeded),
+    equipmentType: textFromUnknown(exercise.equipmentType),
+    technicalInstructions: textFromUnknown(exercise.technicalInstructions),
+    commonMistakes: textFromUnknown(exercise.commonMistakes),
+    contraindications: textFromUnknown(exercise.contraindications),
+    videoUrl: textFromUnknown(exercise.videoUrl) ?? item.exerciseVideoUrl,
+    imageUrl: textFromUnknown(exercise.imageUrl) ?? item.exerciseImageUrl,
+  };
+}
+
+function exerciseMeta(exercise: PublicRoutineExercise['exercise']) {
+  return [exercise.primaryMuscleGroup, exercise.movementPattern, exercise.equipmentNeeded].filter(Boolean).join(' · ');
+}
+
+function ExerciseDetails({ exercise, observations }: { exercise: PublicRoutineExercise['exercise']; observations?: string | null }) {
+  const details = [
+    { label: 'Descripción', value: exercise.description },
+    { label: 'Grupo', value: exercise.primaryMuscleGroup },
+    { label: 'Patrón', value: exercise.movementPattern },
+    { label: 'Equipo', value: exercise.equipmentNeeded },
+    { label: 'Instrucciones', value: exercise.technicalInstructions },
+    { label: 'Errores comunes', value: exercise.commonMistakes },
+    { label: 'Precauciones', value: exercise.contraindications },
+    { label: 'Observaciones', value: observations },
+  ].filter((item) => item.value);
+
+  if (details.length === 0 && !exercise.videoUrl) return null;
+
+  return (
+    <div className="mt-4 border-t border-[#e6e9ed] pt-4">
+      <div className="space-y-3">
+        {details.map((item) => (
+          <div key={item.label}>
+            <p className="text-[11px] font-black uppercase text-[#009a44]">{item.label}</p>
+            <p className="mt-1 text-sm leading-6 text-[#56616b]">{item.value}</p>
+          </div>
+        ))}
+      </div>
+      {exercise.videoUrl ? (
+        <a
+          className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-[8px] border border-[#a8adb3] bg-white text-sm font-black text-[#d14352]"
+          href={exercise.videoUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Ver video de técnica
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+function PlannedStats({
+  sets,
+  repetitions,
+  restSeconds,
+  intensity,
+}: {
+  sets?: number | null;
+  repetitions?: string | null;
+  restSeconds?: number | null;
+  intensity?: string | null;
+}) {
+  return (
+    <p className="mt-5 text-[15px] leading-6 text-[#6c747c]">
+      Series: {valueOrDash(sets)} | Repeticiones: {valueOrDash(repetitions)}
+      {restSeconds !== null && restSeconds !== undefined ? ` | Descanso: ${formatRest(restSeconds)}` : ''}
+      {intensity ? ` | Intensidad: ${intensity}` : ''}
+    </p>
+  );
 }
 
 const genericPublicErrorMessage = 'No pudimos completar la acción. Intentá de nuevo.';
@@ -373,6 +464,7 @@ export default function PublicRoutinePage() {
   const [error, setError] = useState<{ title: string; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [openDay, setOpenDay] = useState(0);
+  const [openExerciseIds, setOpenExerciseIds] = useState<Record<string, boolean>>({});
   const [finishingDayId, setFinishingDayId] = useState('');
   const [savingExerciseId, setSavingExerciseId] = useState('');
   const [actionError, setActionError] = useState('');
@@ -452,6 +544,10 @@ export default function PublicRoutinePage() {
 
   function updateDraft(exerciseId: string, next: Partial<ExerciseDraft>) {
     setDrafts((current) => ({ ...current, [exerciseId]: { ...current[exerciseId], ...next } }));
+  }
+
+  function toggleExerciseDetails(exerciseKey: string) {
+    setOpenExerciseIds((current) => ({ ...current, [exerciseKey]: !current[exerciseKey] }));
   }
 
   async function saveExercise(exerciseId: string) {
@@ -686,23 +782,30 @@ export default function PublicRoutinePage() {
                           .map((item) => {
                             const draft = drafts[item.id] ?? toDraft(item);
                             const dayDone = Boolean(dayCompletedAt);
+                            const exercise = getSnapshotExercise(item) ?? {
+                              name: item.exerciseName,
+                              imageUrl: item.exerciseImageUrl,
+                              videoUrl: item.exerciseVideoUrl,
+                            };
                             return (
-                              <section className="rounded-[8px] border border-[#e5e7eb] p-4" key={item.id}>
+                              <section className="relative overflow-hidden rounded-[8px] border border-[#e3e5e8] bg-[#fbfbfb] py-4 pl-7 pr-3 shadow-[0_3px_10px_rgba(15,23,42,0.12)]" key={item.id}>
+                                <div className="absolute left-0 top-0 h-full w-[8px] bg-[#087a3d]" />
                                 {item.exerciseImageUrl ? (
                                   <img
                                     alt={item.exerciseName}
-                                    className="mb-4 aspect-video w-full rounded-[8px] object-cover"
+                                    className="float-right ml-3 h-[96px] w-[124px] rounded-[8px] border border-[#e8e8e8] bg-white object-contain"
                                     src={item.exerciseImageUrl}
                                   />
                                 ) : null}
                                 <div className="flex items-start justify-between gap-4">
                                   <div>
-                                    <p className="text-xs font-black uppercase text-[#64748b]">Ejercicio {item.order}</p>
-                                    <h3 className="mt-1 text-lg font-black">{item.exerciseName}</h3>
+                                    <p className="text-[13px] text-[#757b82]">Series</p>
+                                    <h3 className="mt-2 text-[24px] font-normal leading-[1.08] tracking-normal text-[#151515] sm:text-[28px]">{item.exerciseName}</h3>
+                                    <p className="mt-2 line-clamp-2 text-sm leading-5 text-[#7a8289]">{exerciseMeta(exercise)}</p>
                                   </div>
                                   {item.exerciseVideoUrl ? (
                                     <a
-                                      className="shrink-0 rounded-[8px] bg-[#087a3d] px-3 py-2 text-sm font-black text-white"
+                                      className="shrink-0 rounded-[8px] border border-[#087a3d] bg-white px-3 py-2 text-sm font-black leading-none text-[#087a3d]"
                                       href={item.exerciseVideoUrl}
                                       rel="noreferrer"
                                       target="_blank"
@@ -712,73 +815,74 @@ export default function PublicRoutinePage() {
                                   ) : null}
                                 </div>
 
-                                <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                                  <div className="rounded-[8px] bg-[#f8faf9] p-3">
-                                    <p className="text-xs font-black uppercase text-[#64748b]">Series</p>
-                                    <p className="mt-1 font-black">{valueOrDash(item.plannedSets)}</p>
-                                  </div>
-                                  <div className="rounded-[8px] bg-[#f8faf9] p-3">
-                                    <p className="text-xs font-black uppercase text-[#64748b]">Reps</p>
-                                    <p className="mt-1 font-black">{valueOrDash(item.plannedRepetitions)}</p>
-                                  </div>
-                                  <div className="rounded-[8px] bg-[#f8faf9] p-3">
-                                    <p className="text-xs font-black uppercase text-[#64748b]">Descanso</p>
-                                    <p className="mt-1 font-black">{valueOrDash(formatRest(item.plannedRestSeconds))}</p>
-                                  </div>
-                                  <div className="rounded-[8px] bg-[#f8faf9] p-3">
-                                    <p className="text-xs font-black uppercase text-[#64748b]">RIR / RPE</p>
-                                    <p className="mt-1 font-black">{valueOrDash(item.plannedRir)} / {valueOrDash(item.plannedRpe)}</p>
-                                  </div>
-                                </div>
+                                <PlannedStats
+                                  intensity={item.plannedIntensity}
+                                  repetitions={item.plannedRepetitions}
+                                  restSeconds={item.plannedRestSeconds}
+                                  sets={item.plannedSets}
+                                />
 
-                                <label className="mt-4 flex items-center gap-2 text-sm font-black text-[#087a3d]">
-                                  <input
-                                    checked={draft.completed}
-                                    className="h-5 w-5"
-                                    disabled={dayDone}
-                                    onChange={(event) => updateDraft(item.id, { completed: event.target.checked })}
-                                    type="checkbox"
-                                  />
-                                  Hecho
-                                </label>
-
-                                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                  {actualFields.map(({ label, field, type = 'text', min, max, placeholder }) => (
-                                    <label className="text-xs font-black text-[#64748b]" key={field}>
-                                      {label}
-                                      <input
-                                        className="mt-1 h-10 w-full rounded-[8px] border border-[#d8dee6] px-2 text-sm font-normal text-[#0f172a] outline-none focus:border-[#087a3d] disabled:bg-[#f8faf9]"
-                                        disabled={dayDone}
-                                        max={max}
-                                        min={min}
-                                        placeholder={placeholder}
-                                        type={type}
-                                        value={draft[field]}
-                                        onChange={(event) => updateDraft(item.id, { [field]: event.target.value })}
-                                      />
-                                    </label>
-                                  ))}
-                                </div>
-                                <label className="mt-3 block text-xs font-black text-[#64748b]">
-                                  Notas
-                                  <textarea
-                                    className="mt-1 min-h-16 w-full rounded-[8px] border border-[#d8dee6] px-3 py-2 text-sm font-normal text-[#0f172a] outline-none focus:border-[#087a3d] disabled:bg-[#f8faf9]"
-                                    disabled={dayDone}
-                                    value={draft.trainerNotes}
-                                    onChange={(event) => updateDraft(item.id, { trainerNotes: event.target.value })}
-                                  />
-                                </label>
-                                {!dayDone ? (
-                                  <div className="mt-3 flex justify-end">
-                                    <button
-                                      className="h-10 rounded-[8px] bg-[#087a3d] px-4 text-sm font-black text-white transition hover:bg-[#076b36] disabled:opacity-60"
-                                      disabled={savingExerciseId === item.id}
-                                      onClick={() => saveExercise(item.id)}
-                                      type="button"
-                                    >
-                                      {savingExerciseId === item.id ? 'Guardando...' : 'Guardar'}
-                                    </button>
-                                  </div>
+                                <button
+                                  className="mt-4 h-11 w-full rounded-[8px] border border-[#a8adb3] bg-white text-sm font-black text-[#d14352]"
+                                  onClick={() => toggleExerciseDetails(item.id)}
+                                  type="button"
+                                >
+                                  {openExerciseIds[item.id] ? 'Ocultar detalles' : 'Ver detalles'}
+                                </button>
+                                {openExerciseIds[item.id] ? (
+                                  <>
+                                    <div className="mt-3 rounded-[8px] border border-[#e6e9ed] bg-white p-3">
+                                      <p className="text-[11px] font-black uppercase text-[#009a44]">Tu carga</p>
+                                      <label className="mt-3 flex items-center gap-2 text-sm font-black text-[#087a3d]">
+                                        <input
+                                          checked={draft.completed}
+                                          className="h-5 w-5 accent-[#087a3d]"
+                                          disabled={dayDone}
+                                          onChange={(event) => updateDraft(item.id, { completed: event.target.checked })}
+                                          type="checkbox"
+                                        />
+                                        Hecho
+                                      </label>
+                                      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                        {actualFields.map(({ label, field, type = 'text', min, max, placeholder }) => (
+                                          <label className="text-xs font-black text-[#64748b]" key={field}>
+                                            {label}
+                                            <input
+                                              className="mt-1 h-10 w-full rounded-[8px] border border-[#d8dee6] px-2 text-sm font-normal text-[#0f172a] outline-none focus:border-[#087a3d] disabled:bg-[#f8faf9]"
+                                              disabled={dayDone}
+                                              max={max}
+                                              min={min}
+                                              onChange={(event) => updateDraft(item.id, { [field]: event.target.value })}
+                                              placeholder={placeholder}
+                                              type={type}
+                                              value={draft[field]}
+                                            />
+                                          </label>
+                                        ))}
+                                      </div>
+                                      <label className="mt-3 block text-xs font-black text-[#64748b]">
+                                        Notas
+                                        <textarea
+                                          className="mt-1 min-h-16 w-full rounded-[8px] border border-[#d8dee6] px-3 py-2 text-sm font-normal text-[#0f172a] outline-none focus:border-[#087a3d] disabled:bg-[#f8faf9]"
+                                          disabled={dayDone}
+                                          onChange={(event) => updateDraft(item.id, { trainerNotes: event.target.value })}
+                                          value={draft.trainerNotes}
+                                        />
+                                      </label>
+                                      {!dayDone ? (
+                                        <div className="mt-3 flex justify-end">
+                                          <button
+                                            className="h-10 rounded-[8px] bg-[#087a3d] px-4 text-sm font-black text-white transition hover:bg-[#076b36] disabled:opacity-60"
+                                            disabled={savingExerciseId === item.id}
+                                            onClick={() => saveExercise(item.id)}
+                                            type="button"
+                                          >
+                                            {savingExerciseId === item.id ? 'Guardando...' : 'Guardar'}
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </>
                                 ) : null}
                               </section>
                             );

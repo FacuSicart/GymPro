@@ -42,6 +42,39 @@ describe('TokenService', () => {
     );
   });
 
+  it('rejects malformed token bodies as unauthorized errors', () => {
+    const service = createService();
+    const token = service.sign({
+      sub: 'user-1',
+      email: 'trainer@example.com',
+      role: 'TRAINER',
+      status: 'ACTIVE',
+    });
+    const [header, , signature] = token.split('.');
+
+    expect(() => service.verify(`${header}.not-json.${signature}`)).toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('rejects tokens with unsupported algorithms', () => {
+    const service = createService();
+    const token = service.sign({
+      sub: 'user-1',
+      email: 'trainer@example.com',
+      role: 'TRAINER',
+      status: 'ACTIVE',
+    });
+    const [, body, signature] = token.split('.');
+    const header = Buffer.from(
+      JSON.stringify({ alg: 'none', typ: 'JWT' }),
+    ).toString('base64url');
+
+    expect(() => service.verify(`${header}.${body}.${signature}`)).toThrow(
+      UnauthorizedException,
+    );
+  });
+
   it('rejects expired tokens', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00Z'));
     const service = createService();

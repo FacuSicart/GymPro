@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsUUID } from 'class-validator';
+import { PaginationQueryDto } from '../../common/pagination-query.dto';
 
-export class ListTrainingFeedbackQueryDto {
+export class ListTrainingFeedbackQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()

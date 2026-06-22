@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { AuthShell } from '@/components/auth-shell';
-import { apiFetch, login, storeToken } from '@/lib/api';
+import { apiFetch, login } from '@/lib/api';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -28,8 +28,7 @@ export default function SignupPage() {
         body: JSON.stringify({ firstName, lastName, email, password }),
       });
 
-      const response = await login(email, password);
-      storeToken(response.accessToken);
+      await login(email, password);
       setMessage('Solicitud enviada. Tu cuenta queda pendiente de aprobacion.');
       router.push('/access-status');
     } catch (caught) {

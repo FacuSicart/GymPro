@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -49,7 +50,7 @@ export class RoutinesController {
 
   @Get(':id')
   @ApiOkResponse({ description: 'Routine detail.' })
-  getRoutine(@CurrentUser() user: User, @Param('id') id: string) {
+  getRoutine(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.getRoutine(user, id);
   }
 
@@ -57,7 +58,7 @@ export class RoutinesController {
   @ApiOkResponse({ description: 'Routine updated.' })
   updateRoutine(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRoutineDto,
   ) {
     return this.routinesService.updateRoutine(user, id, dto);
@@ -65,43 +66,43 @@ export class RoutinesController {
 
   @Post(':id/duplicate')
   @ApiCreatedResponse({ description: 'Routine duplicated as draft.' })
-  duplicateRoutine(@CurrentUser() user: User, @Param('id') id: string) {
+  duplicateRoutine(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.duplicateRoutine(user, id);
   }
 
   @Delete(':id')
   @ApiOkResponse({ description: 'Draft routine deleted.' })
-  deleteRoutine(@CurrentUser() user: User, @Param('id') id: string) {
+  deleteRoutine(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.deleteRoutine(user, id);
   }
 
   @Patch(':id/publish')
   @ApiOkResponse({ description: 'Routine published and versioned.' })
-  publishRoutine(@CurrentUser() user: User, @Param('id') id: string) {
+  publishRoutine(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.publishRoutine(user, id);
   }
 
   @Patch(':id/archive')
   @ApiOkResponse({ description: 'Routine archived.' })
-  archiveRoutine(@CurrentUser() user: User, @Param('id') id: string) {
+  archiveRoutine(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.archiveRoutine(user, id);
   }
 
   @Get(':id/versions')
   @ApiOkResponse({ description: 'Routine version history.' })
-  listVersions(@CurrentUser() user: User, @Param('id') id: string) {
+  listVersions(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.listVersions(user, id);
   }
 
   @Get(':id/public-link')
   @ApiOkResponse({ description: 'Current public link for this routine.' })
-  getPublicLink(@CurrentUser() user: User, @Param('id') id: string) {
+  getPublicLink(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.getPublicLink(user, id);
   }
 
   @Post(':id/public-link')
   @ApiCreatedResponse({ description: 'Public link generated for an active routine.' })
-  generatePublicLink(@CurrentUser() user: User, @Param('id') id: string) {
+  generatePublicLink(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.generatePublicLink(user, id);
   }
 
@@ -109,7 +110,7 @@ export class RoutinesController {
   @ApiOkResponse({ description: 'Public routine link sent by email.' })
   sendPublicLinkEmail(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SendPublicLinkEmailDto,
   ) {
     return this.routinesService.sendPublicLinkEmail(user, id, dto.email);
@@ -117,7 +118,7 @@ export class RoutinesController {
 
   @Patch(':id/public-link/revoke')
   @ApiOkResponse({ description: 'Public link revoked.' })
-  revokePublicLink(@CurrentUser() user: User, @Param('id') id: string) {
+  revokePublicLink(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routinesService.revokePublicLink(user, id);
   }
 }

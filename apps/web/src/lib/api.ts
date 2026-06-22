@@ -27,7 +27,6 @@ export type AuthProfile = {
 };
 
 export type LoginResponse = {
-  accessToken: string;
   user: LocalUser;
   canAccessInternalApp: boolean;
 };
@@ -85,13 +84,7 @@ export type StudentHistoryEvent = {
 
 export type ExerciseApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type ExerciseOperationalStatus = 'ACTIVE' | 'INACTIVE';
-export type ExerciseLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
-export type ExerciseGoal =
-  | 'STRENGTH'
-  | 'HYPERTROPHY'
-  | 'MOBILITY'
-  | 'ENDURANCE'
-  | 'CONDITIONING';
+export type ExerciseGoal = 'STRENGTH' | 'MOBILITY' | 'ENDURANCE' | 'POWER' | 'CORE';
 
 export type Exercise = {
   id: string;
@@ -100,7 +93,6 @@ export type Exercise = {
   primaryMuscleGroup: string;
   secondaryMuscleGroups: string[];
   movementPattern: string;
-  levels: ExerciseLevel[];
   equipmentNeeded: string;
   equipmentType: string;
   goals: ExerciseGoal[];
@@ -144,7 +136,6 @@ export type RoutineExercise = {
     | 'movementPattern'
     | 'equipmentNeeded'
     | 'equipmentType'
-    | 'levels'
     | 'goals'
     | 'technicalInstructions'
     | 'commonMistakes'
@@ -353,6 +344,7 @@ export type PublicLinkTrainingSessionExercise = {
   exerciseName: string;
   exerciseVideoUrl?: string | null;
   exerciseImageUrl?: string | null;
+  exerciseSnapshot?: unknown;
   plannedSets?: number | null;
   plannedRepetitions?: string | null;
   plannedRestSeconds?: number | null;
@@ -448,7 +440,6 @@ export type ExerciseCoverage = {
   minimumPerBucket: number;
   muscleGroups: CoverageBucket[];
   goals: CoverageBucket[];
-  levels: CoverageBucket[];
   equipment: CoverageBucket[];
   equipmentTypes: CoverageBucket[];
   movementPatterns: CoverageBucket[];
@@ -485,7 +476,6 @@ export type DashboardMetrics =
   | TrainerDashboardMetrics
   | AdminDashboardMetrics;
 
-const tokenKey = 'proyecto_gym_access_token';
 const genericErrorMessage = 'No pudimos completar la acción. Intentá de nuevo.';
 const knownApiMessages: Record<string, string> = {
   'Active trainer not found.': 'No encontramos un entrenador activo para asignar.',
@@ -608,32 +598,15 @@ async function readApiError(response: Response) {
   }
 }
 
-export function getStoredToken() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  return window.localStorage.getItem(tokenKey);
-}
-
-export function storeToken(token: string) {
-  window.localStorage.setItem(tokenKey, token);
-}
-
-export function clearToken() {
-  window.localStorage.removeItem(tokenKey);
-}
-
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = getStoredToken();
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
@@ -654,6 +627,20 @@ export async function apiFetch<T>(
   }
 }
 
+function getApiBaseUrl() {
+  if (typeof window === 'undefined') {
+    return env.apiBaseUrl;
+  }
+
+  const configuredUrl = new URL(env.apiBaseUrl);
+
+  if (process.env.NODE_ENV !== 'production') {
+    configuredUrl.hostname = window.location.hostname;
+  }
+
+  return configuredUrl.toString().replace(/\/$/, '');
+}
+
 export function getProfile() {
   return apiFetch<AuthProfile>('/auth/me');
 }
@@ -662,5 +649,11 @@ export function login(email: string, password: string) {
   return apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  });
+}
+
+export function logout() {
+  return apiFetch<{ loggedOut: boolean }>('/auth/logout', {
+    method: 'POST',
   });
 }

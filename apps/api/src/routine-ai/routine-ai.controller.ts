@@ -8,6 +8,7 @@ import type { User } from '@prisma/client';
 import { ActiveUserGuard } from '../auth/active-user.guard';
 import { CurrentUser } from '../auth/current-user';
 import { LocalJwtAuthGuard } from '../auth/local-jwt-auth.guard';
+import { RateLimit } from '../security/rate-limit.decorator';
 import { GenerateRoutineAiDraftDto } from './dto/generate-routine-ai-draft.dto';
 import { RoutineAiService } from './routine-ai.service';
 
@@ -19,6 +20,7 @@ export class RoutineAiController {
   constructor(private readonly routineAiService: RoutineAiService) {}
 
   @Post()
+  @RateLimit({ limit: 8, windowMs: 60_000 })
   @ApiCreatedResponse({ description: 'Routine generated as editable draft.' })
   generateDraft(
     @CurrentUser() user: User,

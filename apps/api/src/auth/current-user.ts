@@ -11,6 +11,7 @@ export type AuthenticatedUser = {
 export type RequestWithUser = {
   headers?: {
     authorization?: string;
+    cookie?: string;
   };
   user?: AuthenticatedUser;
   localUser?: User;

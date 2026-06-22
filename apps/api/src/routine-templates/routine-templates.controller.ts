@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -49,7 +50,7 @@ export class RoutineTemplatesController {
 
   @Get(':id')
   @ApiOkResponse({ description: 'Routine template detail.' })
-  getTemplate(@CurrentUser() user: User, @Param('id') id: string) {
+  getTemplate(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routineTemplatesService.getTemplate(user, id);
   }
 
@@ -57,7 +58,7 @@ export class RoutineTemplatesController {
   @ApiOkResponse({ description: 'Routine template updated.' })
   updateTemplate(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRoutineTemplateDto,
   ) {
     return this.routineTemplatesService.updateTemplate(user, id, dto);
@@ -65,13 +66,13 @@ export class RoutineTemplatesController {
 
   @Patch(':id/archive')
   @ApiOkResponse({ description: 'Routine template archived.' })
-  archiveTemplate(@CurrentUser() user: User, @Param('id') id: string) {
+  archiveTemplate(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routineTemplatesService.archiveTemplate(user, id);
   }
 
   @Delete(':id')
   @ApiOkResponse({ description: 'Routine template deleted.' })
-  deleteTemplate(@CurrentUser() user: User, @Param('id') id: string) {
+  deleteTemplate(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.routineTemplatesService.deleteTemplate(user, id);
   }
 
@@ -79,7 +80,7 @@ export class RoutineTemplatesController {
   @ApiCreatedResponse({ description: 'Routine template assigned to students.' })
   assignTemplate(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignRoutineTemplateDto,
   ) {
     return this.routineTemplatesService.assignTemplate(user, id, dto);

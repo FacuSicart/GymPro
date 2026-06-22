@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -61,7 +62,7 @@ export class ExercisesController {
 
   @Get(':id')
   @ApiOkResponse({ description: 'Exercise detail.' })
-  getExercise(@CurrentUser() user: User, @Param('id') id: string) {
+  getExercise(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.exercisesService.getExercise(user, id);
   }
 
@@ -69,7 +70,7 @@ export class ExercisesController {
   @ApiOkResponse({ description: 'Exercise updated by admin.' })
   updateExercise(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateExerciseDto,
   ) {
     return this.exercisesService.updateExercise(user, id, dto);
@@ -77,7 +78,7 @@ export class ExercisesController {
 
   @Patch(':id/approve')
   @ApiOkResponse({ description: 'Exercise approved and activated by admin.' })
-  approveExercise(@CurrentUser() user: User, @Param('id') id: string) {
+  approveExercise(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.exercisesService.approveExercise(user, id);
   }
 
@@ -85,7 +86,7 @@ export class ExercisesController {
   @ApiOkResponse({ description: 'Exercise rejected by admin.' })
   rejectExercise(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectExerciseDto,
   ) {
     return this.exercisesService.rejectExercise(user, id, dto.reason);
@@ -93,7 +94,7 @@ export class ExercisesController {
 
   @Patch(':id/activate')
   @ApiOkResponse({ description: 'Exercise activated by admin.' })
-  activateExercise(@CurrentUser() user: User, @Param('id') id: string) {
+  activateExercise(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.exercisesService.setOperationalStatus(
       user,
       id,
@@ -103,7 +104,7 @@ export class ExercisesController {
 
   @Patch(':id/deactivate')
   @ApiOkResponse({ description: 'Exercise deactivated by admin.' })
-  deactivateExercise(@CurrentUser() user: User, @Param('id') id: string) {
+  deactivateExercise(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.exercisesService.setOperationalStatus(
       user,
       id,

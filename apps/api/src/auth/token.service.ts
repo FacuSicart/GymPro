@@ -44,9 +44,11 @@ export class TokenService {
   verify(token: string): LocalJwtPayload {
     const [header, body, signature] = token.split('.');
 
-    if (!header || !body || !signature) {
+    if (!header || !body || !signature || token.split('.').length !== 3) {
       throw new UnauthorizedException('Invalid token.');
     }
+
+    this.assertValidHeader(header);
 
     const expectedSignature = this.signSegments(header, body);
     const signatureBuffer = Buffer.from(signature);
@@ -59,9 +61,17 @@ export class TokenService {
       throw new UnauthorizedException('Invalid token signature.');
     }
 
-    const payload = JSON.parse(
-      Buffer.from(body, 'base64url').toString('utf8'),
-    ) as LocalJwtPayload;
+    let payload: LocalJwtPayload;
+
+    try {
+      payload = JSON.parse(
+        Buffer.from(body, 'base64url').toString('utf8'),
+      ) as LocalJwtPayload;
+    } catch {
+      throw new UnauthorizedException('Invalid token payload.');
+    }
+
+    this.assertValidPayload(payload);
 
     if (payload.exp < Math.floor(Date.now() / 1000)) {
       throw new UnauthorizedException('Token expired.');
@@ -74,5 +84,38 @@ export class TokenService {
     return createHmac('sha256', this.secret)
       .update(`${header}.${body}`)
       .digest('base64url');
+  }
+
+  private assertValidHeader(header: string) {
+    try {
+      const parsed = JSON.parse(Buffer.from(header, 'base64url').toString('utf8')) as {
+        alg?: unknown;
+        typ?: unknown;
+      };
+
+      if (parsed.alg !== 'HS256' || parsed.typ !== 'JWT') {
+        throw new UnauthorizedException('Invalid token header.');
+      }
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      throw new UnauthorizedException('Invalid token header.');
+    }
+  }
+
+  private assertValidPayload(payload: LocalJwtPayload) {
+    if (
+      !payload ||
+      typeof payload.sub !== 'string' ||
+      typeof payload.email !== 'string' ||
+      typeof payload.role !== 'string' ||
+      typeof payload.status !== 'string' ||
+      typeof payload.iat !== 'number' ||
+      typeof payload.exp !== 'number'
+    ) {
+      throw new UnauthorizedException('Invalid token payload.');
+    }
   }
 }

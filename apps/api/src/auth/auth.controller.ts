@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -13,6 +13,11 @@ import { TrainerSignupDto } from './dto/trainer-signup.dto';
 import { ActiveUserGuard } from './active-user.guard';
 import { LocalJwtAuthGuard } from './local-jwt-auth.guard';
 import { toPublicUser } from '../users/user-presenter';
+import { RateLimit } from '../security/rate-limit.decorator';
+import type { Response } from 'express';
+
+const accessTokenCookieName = 'pg_access_token';
+const accessTokenCookieMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
 
 @ApiTags('auth')
 @ApiBearerAuth()
@@ -21,9 +26,16 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @RateLimit({ limit: 10, windowMs: 60_000 })
   @ApiOkResponse({ description: 'Local database login.' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) response: Response) {
+    const result = await this.authService.login(dto);
+    this.setAccessTokenCookie(response, result.accessToken);
+
+    return {
+      user: result.user,
+      canAccessInternalApp: result.canAccessInternalApp,
+    };
   }
 
   @Get('me')
@@ -41,6 +53,7 @@ export class AuthController {
   }
 
   @Post('trainer-signup')
+  @RateLimit({ limit: 5, windowMs: 60_000 })
   @ApiCreatedResponse({
     description: 'Trainer registered as pending approval.',
   })
@@ -53,5 +66,28 @@ export class AuthController {
   @ApiOkResponse({ description: 'Active internal session.' })
   session(@CurrentUser() user: User) {
     return { user: toPublicUser(user) };
+  }
+
+  @Post('logout')
+  @ApiOkResponse({ description: 'Local session cleared.' })
+  logout(@Res({ passthrough: true }) response: Response) {
+    response.clearCookie(accessTokenCookieName, this.cookieOptions());
+    return { loggedOut: true };
+  }
+
+  private setAccessTokenCookie(response: Response, token: string) {
+    response.cookie(accessTokenCookieName, token, {
+      ...this.cookieOptions(),
+      maxAge: accessTokenCookieMaxAgeMs,
+    });
+  }
+
+  private cookieOptions() {
+    return {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
+    };
   }
 }

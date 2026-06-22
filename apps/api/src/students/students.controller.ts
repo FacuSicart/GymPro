@@ -4,8 +4,10 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,6 +20,7 @@ import type { User } from '@prisma/client';
 import { ActiveUserGuard } from '../auth/active-user.guard';
 import { CurrentUser } from '../auth/current-user';
 import { LocalJwtAuthGuard } from '../auth/local-jwt-auth.guard';
+import { PaginationQueryDto } from '../common/pagination-query.dto';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentsService } from './students.service';
@@ -31,8 +34,8 @@ export class StudentsController {
 
   @Get()
   @ApiOkResponse({ description: 'Students visible to the current user.' })
-  listStudents(@CurrentUser() user: User) {
-    return this.studentsService.listStudents(user);
+  listStudents(@CurrentUser() user: User, @Query() query: PaginationQueryDto) {
+    return this.studentsService.listStudents(user, query);
   }
 
   @Post()
@@ -43,7 +46,7 @@ export class StudentsController {
 
   @Get(':id')
   @ApiOkResponse({ description: 'Student detail.' })
-  getStudent(@CurrentUser() user: User, @Param('id') id: string) {
+  getStudent(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.studentsService.getStudent(user, id);
   }
 
@@ -51,7 +54,7 @@ export class StudentsController {
   @ApiOkResponse({ description: 'Student updated.' })
   updateStudent(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateStudentDto,
   ) {
     return this.studentsService.updateStudent(user, id, dto);
@@ -59,13 +62,17 @@ export class StudentsController {
 
   @Delete(':id')
   @ApiOkResponse({ description: 'Student deleted.' })
-  deleteStudent(@CurrentUser() user: User, @Param('id') id: string) {
+  deleteStudent(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.studentsService.deleteStudent(user, id);
   }
 
   @Get(':id/history')
   @ApiOkResponse({ description: 'Student history timeline.' })
-  listHistory(@CurrentUser() user: User, @Param('id') id: string) {
-    return this.studentsService.listHistory(user, id);
+  listHistory(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.studentsService.listHistory(user, id, query);
   }
 }

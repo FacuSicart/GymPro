@@ -49,19 +49,19 @@ const studentStatusConfig: Record<
 
 const goalLabels: Record<string, string> = {
   STRENGTH: 'Fuerza',
-  HYPERTROPHY: 'Hipertrofia',
   MOBILITY: 'Movilidad',
-  ENDURANCE: 'Resistencia',
-  CONDITIONING: 'Acondicionamiento',
+  ENDURANCE: 'Cardio',
+  POWER: 'Potencia',
+  CORE: 'Core',
 };
 
 const goalFilterOptions = [
   { label: 'Todos', value: '' },
   { label: 'Fuerza', value: 'STRENGTH' },
-  { label: 'Hipertrofia', value: 'HYPERTROPHY' },
   { label: 'Movilidad', value: 'MOBILITY' },
-  { label: 'Resistencia', value: 'ENDURANCE' },
-  { label: 'Acondicionamiento', value: 'CONDITIONING' },
+  { label: 'Cardio', value: 'ENDURANCE' },
+  { label: 'Potencia', value: 'POWER' },
+  { label: 'Core', value: 'CORE' },
 ];
 
 function Icon({

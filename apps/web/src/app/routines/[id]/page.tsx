@@ -26,10 +26,10 @@ type DayDraft = {
 
 const goalLabels: Record<ExerciseGoal, string> = {
   STRENGTH: 'Fuerza',
-  HYPERTROPHY: 'Hipertrofia',
   MOBILITY: 'Movilidad',
-  ENDURANCE: 'Resistencia',
-  CONDITIONING: 'Acondicionamiento',
+  ENDURANCE: 'Cardio',
+  POWER: 'Potencia',
+  CORE: 'Core',
 };
 
 const statusLabels = {
@@ -167,7 +167,6 @@ export default function RoutineDetailPage() {
   const [muscleFilter, setMuscleFilter] = useState('');
   const [goalFilter, setGoalFilter] = useState('');
   const [equipmentFilter, setEquipmentFilter] = useState('');
-  const [levelFilter, setLevelFilter] = useState('');
   const [patternFilter, setPatternFilter] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -193,11 +192,10 @@ export default function RoutineDetailPage() {
       const matchesMuscle = muscleFilter ? exercise.primaryMuscleGroup === muscleFilter : true;
       const matchesGoal = goalFilter ? exercise.goals.includes(goalFilter as ExerciseGoal) : true;
       const matchesEquipment = equipmentFilter ? exercise.equipmentNeeded === equipmentFilter : true;
-      const matchesLevel = levelFilter ? exercise.levels.includes(levelFilter as never) : true;
       const matchesPattern = patternFilter ? exercise.movementPattern === patternFilter : true;
-      return matchesSearch && matchesMuscle && matchesGoal && matchesEquipment && matchesLevel && matchesPattern;
+      return matchesSearch && matchesMuscle && matchesGoal && matchesEquipment && matchesPattern;
     });
-  }, [catalog, equipmentFilter, exerciseSearch, goalFilter, levelFilter, muscleFilter, patternFilter]);
+  }, [catalog, equipmentFilter, exerciseSearch, goalFilter, muscleFilter, patternFilter]);
 
   const unique = useMemo(() => {
     return {
@@ -767,12 +765,6 @@ export default function RoutineDetailPage() {
           <select className="h-10 rounded-[8px] border border-[#d8dee6] bg-white px-3 text-sm" value={equipmentFilter} onChange={(event) => setEquipmentFilter(event.target.value)}>
             <option value="">Equipo</option>
             {unique.equipment.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-          <select className="h-10 rounded-[8px] border border-[#d8dee6] bg-white px-3 text-sm" value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-            <option value="">Nivel</option>
-            <option value="BEGINNER">Principiante</option>
-            <option value="INTERMEDIATE">Intermedio</option>
-            <option value="ADVANCED">Avanzado</option>
           </select>
           <select className="h-10 rounded-[8px] border border-[#d8dee6] bg-white px-3 text-sm" value={patternFilter} onChange={(event) => setPatternFilter(event.target.value)}>
             <option value="">Patron</option>

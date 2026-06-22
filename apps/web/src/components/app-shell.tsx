@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
-import { apiFetch, clearToken, LocalUser } from '@/lib/api';
+import { apiFetch, LocalUser, logout } from '@/lib/api';
 
 const shellPaths = ['/dashboard', '/entrenadores', '/students', '/exercises', '/routines', '/routine-templates', '/training-sessions'];
 
@@ -74,8 +74,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     { label: 'Plantillas', href: '/routine-templates', icon: 'clipboard' as const, adminOnly: false },
   ].filter((item) => !item.adminOnly || user?.role === 'ADMIN');
 
-  function signOut() {
-    clearToken();
+  async function signOut() {
+    await logout().catch(() => null);
     router.push('/login');
   }
 

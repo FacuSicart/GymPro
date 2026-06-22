@@ -147,6 +147,7 @@ export function toPublicLinkExercise(item: TrainingSessionForLink['days'][number
     exerciseName: item.exerciseName,
     exerciseVideoUrl: item.exerciseVideoUrl,
     exerciseImageUrl: item.exerciseImageUrl,
+    exerciseSnapshot: item.routineExerciseSnapshot,
     plannedSets: item.plannedSets,
     plannedRepetitions: item.plannedRepetitions,
     plannedRestSeconds: item.plannedRestSeconds,
@@ -186,4 +187,3 @@ export function toPublicLinkTrainingSession(session: TrainingSessionForLink) {
       })),
   };
 }
-

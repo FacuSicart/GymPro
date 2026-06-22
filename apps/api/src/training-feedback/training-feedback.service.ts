@@ -13,6 +13,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { paginationArgs } from '../common/pagination-query.dto';
 import { CreateTrainingFeedbackDto } from './dto/create-training-feedback.dto';
 import { ListTrainingFeedbackQueryDto } from './dto/list-training-feedback-query.dto';
 import {
@@ -59,6 +60,7 @@ export class TrainingFeedbackService {
       where: this.buildListWhere(user, query),
       include: trainingFeedbackInclude,
       orderBy: { submittedAt: 'desc' },
+      ...paginationArgs(query),
     });
 
     return toPublicTrainingFeedbacks(feedbacks);
@@ -80,6 +82,7 @@ export class TrainingFeedbackService {
       },
       include: trainingFeedbackInclude,
       orderBy: { submittedAt: 'desc' },
+      ...paginationArgs(),
     });
 
     return toPublicTrainingFeedbacks(feedbacks);
@@ -92,6 +95,7 @@ export class TrainingFeedbackService {
       where: { trainingSessionId: session.id },
       include: trainingFeedbackInclude,
       orderBy: { submittedAt: 'desc' },
+      ...paginationArgs(),
     });
 
     return toPublicTrainingFeedbacks(feedbacks);

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ExerciseGoal, ExerciseLevel } from '@prisma/client';
+import { ExerciseGoal } from '@prisma/client';
 import {
   ArrayNotEmpty,
   IsArray,
@@ -11,6 +11,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+
 
 export const exerciseEquipmentTypes = [
   'libre',
@@ -55,12 +56,6 @@ export class ExerciseProfileDto {
   @MinLength(1)
   @MaxLength(80)
   movementPattern!: string;
-
-  @ApiProperty({ enum: ExerciseLevel, isArray: true })
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsEnum(ExerciseLevel, { each: true })
-  levels!: ExerciseLevel[];
 
   @ApiProperty({ example: 'Mancuerna o kettlebell' })
   @IsString()

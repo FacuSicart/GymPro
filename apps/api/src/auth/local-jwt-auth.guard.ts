@@ -18,9 +18,11 @@ export class LocalJwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
     const authorization = request.headers?.authorization;
-    const token = authorization?.startsWith('Bearer ')
+    const bearerToken = authorization?.startsWith('Bearer ')
       ? authorization.slice('Bearer '.length)
       : undefined;
+    const token =
+      bearerToken ?? this.getCookie(request.headers?.cookie, 'pg_access_token');
 
     if (!token) {
       throw new UnauthorizedException('Bearer token is required.');
@@ -44,5 +46,21 @@ export class LocalJwtAuthGuard implements CanActivate {
     };
 
     return true;
+  }
+
+  private getCookie(cookieHeader: string | undefined, name: string) {
+    if (!cookieHeader) {
+      return undefined;
+    }
+
+    for (const cookie of cookieHeader.split(';')) {
+      const [rawKey, ...rawValue] = cookie.trim().split('=');
+
+      if (rawKey === name) {
+        return decodeURIComponent(rawValue.join('='));
+      }
+    }
+
+    return undefined;
   }
 }

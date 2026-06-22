@@ -17,6 +17,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { Environment } from '../config/env.validation';
+import { paginationArgs } from '../common/pagination-query.dto';
 import { PrismaService } from '../database/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { CreateRoutineDto } from './dto/create-routine.dto';
@@ -70,6 +71,7 @@ export class RoutinesService {
       where: this.buildListWhere(user, query),
       include: routineInclude,
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      ...paginationArgs(query),
     });
 
     return toPublicRoutines(routines);

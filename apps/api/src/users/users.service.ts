@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { UserRole, UserStatus } from '@prisma/client';
 import type { Prisma, User } from '@prisma/client';
+import { paginationArgs, PaginationQueryDto } from '../common/pagination-query.dto';
 import { PrismaService } from '../database/prisma.service';
 import { toPublicUser, toPublicUsers } from './user-presenter';
 
@@ -14,7 +15,7 @@ type TrainerModerationAction = 'approve' | 'reject';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listTrainers(status?: string) {
+  async listTrainers(status?: string, query: PaginationQueryDto = {}) {
     const where: Prisma.UserWhereInput = {
       role: UserRole.TRAINER,
     };
@@ -30,6 +31,7 @@ export class UsersService {
     const users = await this.prisma.user.findMany({
       where,
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      ...paginationArgs(query),
     });
 
     return toPublicUsers(users);

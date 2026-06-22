@@ -3,7 +3,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import {
   ExerciseApprovalStatus,
   ExerciseGoal,
-  ExerciseLevel,
   ExerciseOperationalStatus,
   Prisma,
   PrismaClient,
@@ -31,19 +30,19 @@ type ExerciseTemplate = {
 };
 
 const requiredGoals = [
-  ExerciseGoal.HYPERTROPHY,
   ExerciseGoal.STRENGTH,
   ExerciseGoal.MOBILITY,
   ExerciseGoal.ENDURANCE,
-  ExerciseGoal.CONDITIONING,
+  ExerciseGoal.POWER,
+  ExerciseGoal.CORE,
 ] as const;
 
 const goalLabels: Record<ExerciseGoal, string> = {
-  HYPERTROPHY: 'hipertrofia',
   STRENGTH: 'fuerza',
   MOBILITY: 'movilidad',
-  ENDURANCE: 'resistencia',
-  CONDITIONING: 'acondicionamiento',
+  ENDURANCE: 'cardio',
+  POWER: 'potencia',
+  CORE: 'core',
 };
 
 const requiredGroups = [
@@ -627,7 +626,6 @@ function buildExercises(adminId: string) {
         primaryMuscleGroup: group,
         secondaryMuscleGroups: exercise.secondaryMuscleGroups,
         movementPattern: exercise.movementPattern,
-        levels: inferLevels(exercise),
         equipmentNeeded: exercise.equipmentNeeded,
         equipmentType: exercise.equipmentType,
         goals,
@@ -651,29 +649,6 @@ function buildExercises(adminId: string) {
   return records;
 }
 
-function inferLevels(exercise: ExerciseTemplate) {
-  const advancedNames = [
-    'Peso muerto',
-    'Press militar',
-    'Buenos días',
-    'Swing',
-    'Sentadilla frontal',
-    'Peso muerto sumo',
-  ];
-
-  if (advancedNames.some((name) => exercise.name.includes(name))) {
-    return [ExerciseLevel.INTERMEDIATE, ExerciseLevel.ADVANCED];
-  }
-
-  if (
-    exercise.equipmentType === 'maquina' ||
-    exercise.equipmentType === 'polea'
-  ) {
-    return [ExerciseLevel.BEGINNER, ExerciseLevel.INTERMEDIATE];
-  }
-
-  return [ExerciseLevel.BEGINNER, ExerciseLevel.INTERMEDIATE];
-}
 
 function buildTechnicalInstructions(exercise: ExerciseTemplate, group: string) {
   return [
@@ -734,10 +709,6 @@ function assertNoDuplicateNames(
 
 function buildCoverageReport(records: Prisma.ExerciseUncheckedCreateInput[]) {
   const byGoal = countByExpanded(records, (record) => record.goals as string[]);
-  const byLevel = countByExpanded(
-    records,
-    (record) => record.levels as string[],
-  );
   const byGroup = countBy(records, (record) => record.primaryMuscleGroup);
   const byEquipmentType = countBy(records, (record) =>
     String(record.equipmentType),
@@ -773,7 +744,6 @@ function buildCoverageReport(records: Prisma.ExerciseUncheckedCreateInput[]) {
   return {
     total: records.length,
     byGoal,
-    byLevel,
     byGroup,
     byEquipmentType,
     completeCombinations,

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -48,7 +49,7 @@ export class TrainingSessionsController {
 
   @Get(':id')
   @ApiOkResponse({ description: 'Training session detail.' })
-  getSession(@CurrentUser() user: User, @Param('id') id: string) {
+  getSession(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.trainingSessionsService.getSession(user, id);
   }
 
@@ -56,7 +57,7 @@ export class TrainingSessionsController {
   @ApiOkResponse({ description: 'Training session updated.' })
   updateSession(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTrainingSessionDto,
   ) {
     return this.trainingSessionsService.updateSession(user, id, dto);
@@ -64,19 +65,19 @@ export class TrainingSessionsController {
 
   @Patch(':id/start')
   @ApiOkResponse({ description: 'Training session started.' })
-  startSession(@CurrentUser() user: User, @Param('id') id: string) {
+  startSession(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.trainingSessionsService.startSession(user, id);
   }
 
   @Patch(':id/complete')
   @ApiOkResponse({ description: 'Training session completed.' })
-  completeSession(@CurrentUser() user: User, @Param('id') id: string) {
+  completeSession(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.trainingSessionsService.completeSession(user, id);
   }
 
   @Patch(':id/cancel')
   @ApiOkResponse({ description: 'Training session cancelled.' })
-  cancelSession(@CurrentUser() user: User, @Param('id') id: string) {
+  cancelSession(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.trainingSessionsService.cancelSession(user, id);
   }
 
@@ -84,7 +85,7 @@ export class TrainingSessionsController {
   @ApiOkResponse({ description: 'Training session exercise execution updated.' })
   updateSessionExercise(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTrainingSessionExerciseDto,
   ) {
     return this.trainingSessionsService.updateSessionExercise(user, id, dto);

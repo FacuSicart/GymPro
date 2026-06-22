@@ -8,7 +8,6 @@ import {
   Exercise,
   ExerciseApprovalStatus,
   ExerciseGoal,
-  ExerciseLevel,
   ExerciseOperationalStatus,
   LocalUser,
 } from '@/lib/api';
@@ -27,26 +26,16 @@ const operationalLabels: Record<ExerciseOperationalStatus, string> = {
   INACTIVE: 'Inactivo',
 };
 
-const levelLabels: Record<ExerciseLevel, string> = {
-  BEGINNER: 'Principiante',
-  INTERMEDIATE: 'Intermedio',
-  ADVANCED: 'Avanzado',
-};
-
 const goalLabels: Record<ExerciseGoal, string> = {
   STRENGTH: 'Fuerza',
-  HYPERTROPHY: 'Hipertrofia',
   MOBILITY: 'Movilidad',
-  ENDURANCE: 'Resistencia',
-  CONDITIONING: 'Acondicionamiento',
+  ENDURANCE: 'Cardio',
+  POWER: 'Potencia',
+  CORE: 'Core',
 };
 
 function formatGoals(goals: ExerciseGoal[]) {
   return goals.map((goal) => goalLabels[goal]).join(', ');
-}
-
-function formatLevels(levels: ExerciseLevel[]) {
-  return levels.map((level) => levelLabels[level]).join(', ');
 }
 
 function Icon({
@@ -263,7 +252,6 @@ export default function ExerciseDetailPage() {
         <div className="grid gap-6 px-6 py-6 sm:grid-cols-2 lg:grid-cols-4">
           <InfoItem label="Grupo principal" value={exercise.primaryMuscleGroup} />
           <InfoItem label="Objetivos" value={formatGoals(exercise.goals)} />
-          <InfoItem label="Niveles" value={formatLevels(exercise.levels)} />
           <InfoItem label="Operacion" value={operationalLabels[exercise.operationalStatus]} />
           <InfoItem label="Patron" value={exercise.movementPattern} />
           <InfoItem label="Equipamiento" value={exercise.equipmentNeeded} />

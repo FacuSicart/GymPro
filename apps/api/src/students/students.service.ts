@@ -13,6 +13,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { paginationArgs } from '../common/pagination-query.dto';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { StudentProfileDto } from './dto/student-profile.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -28,11 +29,12 @@ const studentInclude = { profile: true } satisfies Prisma.StudentInclude;
 export class StudentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listStudents(user: User) {
+  async listStudents(user: User, query = {}) {
     const students = await this.prisma.student.findMany({
       where: this.buildListWhere(user),
       include: studentInclude,
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      ...paginationArgs(query),
     });
 
     return toPublicStudents(students);
@@ -176,11 +178,12 @@ export class StudentsService {
     return { deleted: true };
   }
 
-  async listHistory(user: User, studentId: string) {
+  async listHistory(user: User, studentId: string, query = {}) {
     const student = await this.findAccessibleStudent(user, studentId);
     const events = await this.prisma.studentHistoryEvent.findMany({
       where: { studentId: student.id },
       orderBy: { createdAt: 'desc' },
+      ...paginationArgs(query),
     });
 
     return toPublicHistory(events);

@@ -8,7 +8,6 @@ import {
   Exercise,
   ExerciseApprovalStatus,
   ExerciseGoal,
-  ExerciseLevel,
   ExerciseOperationalStatus,
   LocalUser,
 } from '@/lib/api';
@@ -24,25 +23,18 @@ const operationalLabels: Record<ExerciseOperationalStatus, string> = {
   INACTIVE: 'Inactivo',
 };
 
-const levelLabels: Record<ExerciseLevel, string> = {
-  BEGINNER: 'Principiante',
-  INTERMEDIATE: 'Intermedio',
-  ADVANCED: 'Avanzado',
-};
-
 const goalLabels: Record<ExerciseGoal, string> = {
   STRENGTH: 'Fuerza',
-  HYPERTROPHY: 'Hipertrofia',
   MOBILITY: 'Movilidad',
-  ENDURANCE: 'Resistencia',
-  CONDITIONING: 'Acondicionamiento',
+  ENDURANCE: 'Cardio',
+  POWER: 'Potencia',
+  CORE: 'Core',
 };
 
 type Filters = {
   search: string;
   primaryMuscleGroup: string;
   goal: string;
-  level: string;
   equipmentNeeded: string;
   movementPattern: string;
   approvalStatus: string;
@@ -53,7 +45,6 @@ const emptyFilters: Filters = {
   search: '',
   primaryMuscleGroup: '',
   goal: '',
-  level: '',
   equipmentNeeded: '',
   movementPattern: '',
   approvalStatus: '',
@@ -103,9 +94,6 @@ function formatGoals(goals: ExerciseGoal[]) {
   return goals.map((goal) => goalLabels[goal]).join(', ');
 }
 
-function formatLevels(levels: ExerciseLevel[]) {
-  return levels.map((level) => levelLabels[level]).join(', ');
-}
 
 function TabLink({
   active,
@@ -429,12 +417,6 @@ export default function ExercisesPage() {
               options={[{ value: '', label: 'Todos los objetivos' }, ...Object.entries(goalLabels).map(([value, label]) => ({ value, label }))]}
               value={filters.goal}
             />
-            <SelectField
-              label="Niveles"
-              onChange={(value) => updateFilter('level', value)}
-              options={[{ value: '', label: 'Todos los niveles' }, ...Object.entries(levelLabels).map(([value, label]) => ({ value, label }))]}
-              value={filters.level}
-            />
             {isAdmin ? (
               <>
                 <SelectField
@@ -527,7 +509,6 @@ export default function ExercisesPage() {
                   <th className="px-6 py-4 font-black">Ejercicio</th>
                   <th className="px-6 py-4 font-black">Grupo</th>
                   <th className="px-6 py-4 font-black">Objetivos</th>
-                  <th className="px-6 py-4 font-black">Niveles</th>
                   <th className="px-6 py-4 font-black">Estado</th>
                   <th className="px-6 py-4 font-black">Acciones</th>
                 </tr>
@@ -541,7 +522,6 @@ export default function ExercisesPage() {
                     </td>
                     <td className="px-6 py-4 text-[#1f2937]">{exercise.primaryMuscleGroup}</td>
                     <td className="px-6 py-4 text-[#1f2937]">{formatGoals(exercise.goals)}</td>
-                    <td className="px-6 py-4 text-[#1f2937]">{formatLevels(exercise.levels)}</td>
                     <td className="px-6 py-4">
                       <span className={exercise.approvalStatus === 'APPROVED' ? 'font-black text-[#087a3d]' : 'font-black text-[#c8751b]'}>
                         {approvalLabels[exercise.approvalStatus]}
@@ -663,7 +643,6 @@ export default function ExercisesPage() {
               <DetailRow label="Grupo muscular" value={selectedExercise.primaryMuscleGroup} />
               <DetailRow label="Secundarios" value={selectedExercise.secondaryMuscleGroups.length ? selectedExercise.secondaryMuscleGroups.join(', ') : '-'} />
               <DetailRow label="Objetivos" value={formatGoals(selectedExercise.goals)} />
-              <DetailRow label="Niveles" value={formatLevels(selectedExercise.levels)} />
               <DetailRow label="Equipamiento" value={selectedExercise.equipmentNeeded} />
               <DetailRow label="Patron" value={selectedExercise.movementPattern} />
               <DetailRow label="Operacion" value={operationalLabels[selectedExercise.operationalStatus]} />

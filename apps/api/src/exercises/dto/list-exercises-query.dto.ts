@@ -2,12 +2,12 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ExerciseApprovalStatus,
   ExerciseGoal,
-  ExerciseLevel,
   ExerciseOperationalStatus,
 } from '@prisma/client';
+import { PaginationQueryDto } from '../../common/pagination-query.dto';
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 
-export class ListExercisesQueryDto {
+export class ListExercisesQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ExerciseApprovalStatus })
   @IsOptional()
   @IsEnum(ExerciseApprovalStatus)
@@ -28,11 +28,6 @@ export class ListExercisesQueryDto {
   @IsOptional()
   @IsEnum(ExerciseGoal)
   goal?: ExerciseGoal;
-
-  @ApiPropertyOptional({ enum: ExerciseLevel })
-  @IsOptional()
-  @IsEnum(ExerciseLevel)
-  level?: ExerciseLevel;
 
   @ApiPropertyOptional({ example: 'Mancuerna' })
   @IsOptional()

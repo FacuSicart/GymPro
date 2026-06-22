@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
 import { ActiveUserGuard } from '../auth/active-user.guard';
@@ -15,13 +15,13 @@ export class StudentTrainingFeedbackController {
 
   @Get(':id/training-feedback')
   @ApiOkResponse({ description: 'Training feedback for a given student.' })
-  listByStudent(@CurrentUser() user: User, @Param('id') id: string) {
+  listByStudent(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.trainingFeedbackService.listByStudent(user, id);
   }
 
   @Get(':id/discomfort-alerts')
   @ApiOkResponse({ description: 'Recurrent discomfort alerts for a given student.' })
-  listRecurrentDiscomforts(@CurrentUser() user: User, @Param('id') id: string) {
+  listRecurrentDiscomforts(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.trainingFeedbackService.listRecurrentDiscomforts(user, id);
   }
 }

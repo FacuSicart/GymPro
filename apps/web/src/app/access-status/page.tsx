@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { AuthProfile, clearToken, getProfile } from '@/lib/api';
+import { AuthProfile, getProfile, logout } from '@/lib/api';
 
 const labels = {
   PENDING_APPROVAL: 'Pendiente de aprobacion',
@@ -29,7 +29,7 @@ export default function AccessStatusPage() {
   }, []);
 
   async function signOut() {
-    clearToken();
+    await logout().catch(() => null);
     window.location.href = '/login';
   }
 

@@ -6,7 +6,6 @@ import {
   apiFetch,
   Exercise,
   ExerciseGoal,
-  ExerciseLevel,
 } from '@/lib/api';
 
 type ExerciseFormProps = {
@@ -20,7 +19,6 @@ type FormState = {
   primaryMuscleGroup: string;
   secondaryMuscleGroups: string;
   movementPattern: string;
-  levels: ExerciseLevel[];
   equipmentNeeded: string;
   goals: ExerciseGoal[];
   technicalInstructions: string;
@@ -30,18 +28,12 @@ type FormState = {
   imageUrl: string;
 };
 
-const levels: Array<{ value: ExerciseLevel; label: string }> = [
-  { value: 'BEGINNER', label: 'Principiante' },
-  { value: 'INTERMEDIATE', label: 'Intermedio' },
-  { value: 'ADVANCED', label: 'Avanzado' },
-];
-
 const goals: Array<{ value: ExerciseGoal; label: string }> = [
   { value: 'STRENGTH', label: 'Fuerza' },
-  { value: 'HYPERTROPHY', label: 'Hipertrofia' },
   { value: 'MOBILITY', label: 'Movilidad' },
-  { value: 'ENDURANCE', label: 'Resistencia' },
-  { value: 'CONDITIONING', label: 'Acondicionamiento' },
+  { value: 'ENDURANCE', label: 'Cardio' },
+  { value: 'POWER', label: 'Potencia' },
+  { value: 'CORE', label: 'Core' },
 ];
 
 function initialState(exercise?: Exercise): FormState {
@@ -51,9 +43,8 @@ function initialState(exercise?: Exercise): FormState {
     primaryMuscleGroup: exercise?.primaryMuscleGroup ?? '',
     secondaryMuscleGroups: exercise?.secondaryMuscleGroups?.join(', ') ?? '',
     movementPattern: exercise?.movementPattern ?? '',
-    levels: exercise?.levels ?? ['BEGINNER', 'INTERMEDIATE'],
     equipmentNeeded: exercise?.equipmentNeeded ?? '',
-    goals: exercise?.goals ?? ['HYPERTROPHY'],
+    goals: exercise?.goals ?? ['STRENGTH'],
     technicalInstructions: exercise?.technicalInstructions ?? '',
     commonMistakes: exercise?.commonMistakes ?? '',
     contraindications: exercise?.contraindications ?? '',
@@ -86,12 +77,9 @@ export function ExerciseForm({ exercise, backHref }: ExerciseFormProps) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function toggleListField<T extends ExerciseGoal | ExerciseLevel>(
-    field: 'goals' | 'levels',
-    value: T,
-  ) {
+  function toggleListField(field: 'goals', value: ExerciseGoal) {
     setForm((current) => {
-      const values = current[field] as T[];
+      const values = current[field];
       const nextValues = values.includes(value)
         ? values.filter((item) => item !== value)
         : [...values, value];
@@ -114,8 +102,8 @@ export function ExerciseForm({ exercise, backHref }: ExerciseFormProps) {
     setError('');
 
     try {
-      if (!form.goals.length || !form.levels.length) {
-        throw new Error('Selecciona al menos un objetivo y un nivel.');
+      if (!form.goals.length) {
+        throw new Error('Selecciona al menos un objetivo.');
       }
 
       const saved = await apiFetch<Exercise>(
@@ -128,7 +116,6 @@ export function ExerciseForm({ exercise, backHref }: ExerciseFormProps) {
             primaryMuscleGroup: form.primaryMuscleGroup,
             secondaryMuscleGroups: splitList(form.secondaryMuscleGroups),
             movementPattern: form.movementPattern,
-            levels: form.levels,
             equipmentNeeded: form.equipmentNeeded,
             goals: form.goals,
             technicalInstructions: form.technicalInstructions,
@@ -189,17 +176,6 @@ export function ExerciseForm({ exercise, backHref }: ExerciseFormProps) {
           <h2 className="text-lg font-black text-[#0f172a]">Clasificacion</h2>
         </div>
         <div className="grid gap-5 px-6 py-5 sm:grid-cols-2">
-          <div className="text-sm font-semibold text-[#334155]">
-            Nivel
-            <div className="mt-2 grid gap-2">
-              {levels.map((level) => (
-                <label className="flex h-10 items-center gap-2 rounded-[8px] border border-[#d8dee6] px-3 text-sm font-normal text-[#334155]" key={level.value}>
-                  <input checked={form.levels.includes(level.value)} onChange={() => toggleListField('levels', level.value)} type="checkbox" />
-                  {level.label}
-                </label>
-              ))}
-            </div>
-          </div>
           <div className="text-sm font-semibold text-[#334155]">
             Objetivos
             <div className="mt-2 grid gap-2">

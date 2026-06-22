@@ -65,18 +65,13 @@ enum ExerciseOperationalStatus {
   INACTIVE
 }
 
-enum ExerciseLevel {
-  BEGINNER
-  INTERMEDIATE
-  ADVANCED
-}
 
 enum ExerciseGoal {
   STRENGTH
-  HYPERTROPHY
   MOBILITY
   ENDURANCE
-  CONDITIONING
+  POWER
+  CORE
 }
 
 enum RoutineStatus {
@@ -180,7 +175,6 @@ model Exercise {
   primaryMuscleGroup    String                    @map("primary_muscle_group")
   secondaryMuscleGroups String[]                  @default([]) @map("secondary_muscle_groups")
   movementPattern       String                    @map("movement_pattern")
-  levels                ExerciseLevel[]           @default([])
   equipmentNeeded       String                    @map("equipment_needed")
   equipmentType         String                    @default("otro") @map("equipment_type")
   goals                 ExerciseGoal[]            @default([])

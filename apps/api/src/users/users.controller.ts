@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Query,
   UseGuards,
@@ -13,6 +14,7 @@ import type { User } from '@prisma/client';
 import { ActiveUserGuard } from '../auth/active-user.guard';
 import { CurrentUser } from '../auth/current-user';
 import { LocalJwtAuthGuard } from '../auth/local-jwt-auth.guard';
+import { ListTrainersQueryDto } from './dto/list-trainers-query.dto';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { RejectUserDto } from './dto/reject-user.dto';
@@ -28,8 +30,8 @@ export class UsersController {
   @Get('trainers')
   @Roles(UserRole.ADMIN)
   @ApiOkResponse({ description: 'Trainer accounts, optionally filtered by status.' })
-  listTrainers(@Query('status') status?: string) {
-    return this.usersService.listTrainers(status);
+  listTrainers(@Query() query: ListTrainersQueryDto) {
+    return this.usersService.listTrainers(query.status, query);
   }
 
   @Get('pending-trainers')
@@ -42,7 +44,7 @@ export class UsersController {
   @Patch(':id/approve')
   @Roles(UserRole.ADMIN)
   @ApiOkResponse({ description: 'Trainer approved and activated.' })
-  approveTrainer(@CurrentUser() user: User, @Param('id') id: string) {
+  approveTrainer(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.approveTrainer(user, id);
   }
 
@@ -51,7 +53,7 @@ export class UsersController {
   @ApiOkResponse({ description: 'Trainer rejected.' })
   rejectTrainer(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectUserDto,
   ) {
     return this.usersService.rejectTrainer(user, id, dto.reason);
@@ -60,7 +62,7 @@ export class UsersController {
   @Patch(':id/deactivate')
   @Roles(UserRole.ADMIN)
   @ApiOkResponse({ description: 'Active trainer virtually deactivated.' })
-  deactivateTrainer(@CurrentUser() user: User, @Param('id') id: string) {
+  deactivateTrainer(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.deactivateTrainer(user, id);
   }
 }

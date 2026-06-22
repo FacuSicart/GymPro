@@ -7,13 +7,13 @@ import {
 import {
   ExerciseApprovalStatus,
   ExerciseGoal,
-  ExerciseLevel,
   ExerciseOperationalStatus,
   Prisma,
   User,
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { paginationArgs } from '../common/pagination-query.dto';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { ListExercisesQueryDto } from './dto/list-exercises-query.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
@@ -29,6 +29,7 @@ export class ExercisesService {
     const exercises = await this.prisma.exercise.findMany({
       where: this.buildListWhere(user, query),
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      ...paginationArgs(query),
     });
 
     return toPublicExercises(exercises);
@@ -40,6 +41,7 @@ export class ExercisesService {
         createdByUserId: user.id,
       },
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      ...paginationArgs(),
     });
 
     return toPublicExercises(exercises);
@@ -56,20 +58,13 @@ export class ExercisesService {
     const [
       muscleGroups,
       goals,
-      levels,
       equipment,
       equipmentTypes,
       movementPatterns,
     ] = await Promise.all([
       this.groupApprovedActiveBy('primaryMuscleGroup', approvedActiveWhere),
       this.buildEnumArrayCoverage(
-        'goals',
         Object.values(ExerciseGoal),
-        approvedActiveWhere,
-      ),
-      this.buildEnumArrayCoverage(
-        'levels',
-        Object.values(ExerciseLevel),
         approvedActiveWhere,
       ),
       this.groupApprovedActiveBy('equipmentNeeded', approvedActiveWhere),
@@ -81,7 +76,6 @@ export class ExercisesService {
       minimumPerBucket: 2,
       muscleGroups,
       goals,
-      levels,
       equipment,
       equipmentTypes,
       movementPatterns,
@@ -234,10 +228,6 @@ export class ExercisesService {
       where.goals = { has: query.goal };
     }
 
-    if (query.level) {
-      where.levels = { has: query.level };
-    }
-
     if (query.equipmentNeeded) {
       where.equipmentNeeded = {
         contains: query.equipmentNeeded,
@@ -278,7 +268,6 @@ export class ExercisesService {
       primaryMuscleGroup: dto.primaryMuscleGroup.trim(),
       secondaryMuscleGroups: this.normalizeTextList(dto.secondaryMuscleGroups),
       movementPattern: dto.movementPattern.trim(),
-      levels: this.normalizeEnumList(dto.levels),
       equipmentNeeded: dto.equipmentNeeded.trim(),
       equipmentType: this.normalizeEquipmentType(dto.equipmentType),
       goals: this.normalizeEnumList(dto.goals),
@@ -309,8 +298,6 @@ export class ExercisesService {
     if (dto.movementPattern !== undefined) {
       data.movementPattern = dto.movementPattern.trim();
     }
-    if (dto.levels !== undefined)
-      data.levels = this.normalizeEnumList(dto.levels);
     if (dto.equipmentNeeded !== undefined) {
       data.equipmentNeeded = dto.equipmentNeeded.trim();
     }
@@ -438,21 +425,16 @@ export class ExercisesService {
   }
 
   private async buildEnumArrayCoverage(
-    field: 'goals' | 'levels',
     expectedValues: string[],
     where: Prisma.ExerciseWhereInput,
   ) {
     const rows = await this.prisma.exercise.findMany({
       where,
-      select: { goals: true, levels: true },
+      select: { goals: true },
     });
 
     return expectedValues.map((value) => {
-      const count = rows.filter((row) => {
-        const values = field === 'goals' ? row.goals : row.levels;
-
-        return values.includes(value as never);
-      }).length;
+      const count = rows.filter((row) => row.goals.includes(value as never)).length;
 
       return {
         value,

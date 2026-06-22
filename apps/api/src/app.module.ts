@@ -10,6 +10,7 @@ import { MailModule } from './mail/mail.module';
 import { RoutinesModule } from './routines/routines.module';
 import { RoutineAiModule } from './routine-ai/routine-ai.module';
 import { RoutineTemplatesModule } from './routine-templates/routine-templates.module';
+import { SecurityModule } from './security/security.module';
 import { StudentsModule } from './students/students.module';
 import { TrainingFeedbackModule } from './training-feedback/training-feedback.module';
 import { TrainingSessionsModule } from './training-sessions/training-sessions.module';
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module';
       validate: validateEnv,
     }),
     PrismaModule,
+    SecurityModule,
     AuthModule,
     DashboardModule,
     UsersModule,

@@ -14,6 +14,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { paginationArgs } from '../common/pagination-query.dto';
 import { CreateTrainingSessionDto } from './dto/create-training-session.dto';
 import { ListTrainingSessionsQueryDto } from './dto/list-training-sessions-query.dto';
 import { UpdateTrainingSessionExerciseDto } from './dto/update-training-session-exercise.dto';
@@ -59,6 +60,7 @@ export class TrainingSessionsService {
       where: this.buildListWhere(user, query),
       include: trainingSessionInclude,
       orderBy: [{ scheduledDate: 'desc' }, { createdAt: 'desc' }],
+      ...paginationArgs(query),
     });
 
     return toPublicTrainingSessions(sessions);
@@ -80,6 +82,7 @@ export class TrainingSessionsService {
       },
       include: trainingSessionInclude,
       orderBy: [{ scheduledDate: 'desc' }, { createdAt: 'desc' }],
+      ...paginationArgs(),
     });
 
     return toPublicTrainingSessions(sessions);
