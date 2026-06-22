@@ -115,10 +115,6 @@ npm.cmd run prisma:migrate --workspace api
 
 Decision tecnica documentada para este modulo: la autenticacion queda en base de datos local para evitar duplicacion de perfil con proveedores externos y preparar el mismo enfoque para alumnos cuando exista ese rol. Los entrenadores registrados publicamente nacen con su propio tenant, pero el listado de pendientes es global para administradores. Esto prioriza el requerimiento confirmado de aprobacion admin. Las reglas finas de tenant/ownership se aplicaran en los modulos de negocio siguientes.
 
-## Alcance de esta base
-
-Esta preparacion ya incluye el primer modulo de autenticacion, usuarios y onboarding de entrenadores. No incluye modulos de alumnos, ejercicios, rutinas, feedback, IA ni exportaciones.
-
 ## Decisiones documentadas
 
 Ver [docs/technical-decisions.md](docs/technical-decisions.md).
