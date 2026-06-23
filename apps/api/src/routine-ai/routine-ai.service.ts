@@ -24,8 +24,10 @@ import { toPublicRoutine } from '../routines/routine-presenter';
 import { GenerateRoutineAiDraftDto } from './dto/generate-routine-ai-draft.dto';
 
 const PROMPT_VERSION = 'routine-ai-v1';
-const STRATEGY_VERSION = 'catalog-only-exact-counts-v1';
+const STRATEGY_VERSION = 'catalog-only-exact-counts-chunked-v2';
 const DEFAULT_MODEL = 'gpt-4.1-mini';
+const ROUTINE_AI_DAY_BATCH_SIZE = 10;
+const ROUTINE_AI_MAX_OUTPUT_TOKENS = 16_000;
 
 const routineInclude = {
   student: true,
@@ -146,25 +148,16 @@ export class RoutineAiService {
       });
       aiLogId = aiLog.id;
 
-      const rawDraft = await this.requestRoutineDraft(
+      const rawDraft = await this.requestChunkedRoutineDraft(
         apiKey,
         model,
         context,
+        targetDayCount,
         catalog.map((exercise) => exercise.id),
       );
-      const parsed = aiRoutineSchema.safeParse(rawDraft);
-
-      if (!parsed.success) {
-        await this.markAiLog(aiLog.id, AiLogStatus.REJECTED_SCHEMA, {
-          error: parsed.error.message,
-        });
-        throw new BadRequestException(
-          'AI response did not match the expected routine structure.',
-        );
-      }
 
       const normalizedDraft = this.normalizeAiDraftOrders(
-        this.replaceDuplicateExercisesWithinDays(parsed.data, catalog),
+        this.replaceDuplicateExercisesWithinDays(rawDraft, catalog),
       );
 
       try {
@@ -404,6 +397,7 @@ export class RoutineAiService {
       },
       body: JSON.stringify({
         model,
+        max_output_tokens: ROUTINE_AI_MAX_OUTPUT_TOKENS,
         input: [
           { role: 'system', content: this.systemPrompt() },
           { role: 'user', content: JSON.stringify(context) },
@@ -435,6 +429,83 @@ export class RoutineAiService {
     }
 
     return JSON.parse(outputText) as unknown;
+  }
+
+  private async requestChunkedRoutineDraft(
+    apiKey: string,
+    model: string,
+    context: Record<string, unknown>,
+    targetDayCount: number,
+    allowedExerciseIds: string[],
+  ): Promise<AiRoutineDraft> {
+    const chunks: AiRoutineDraft[] = [];
+
+    for (
+      let startDay = 1;
+      startDay <= targetDayCount;
+      startDay += ROUTINE_AI_DAY_BATCH_SIZE
+    ) {
+      const endDay = Math.min(
+        startDay + ROUTINE_AI_DAY_BATCH_SIZE - 1,
+        targetDayCount,
+      );
+      const chunkContext = this.buildChunkContext(context, startDay, endDay);
+      const rawChunk = await this.requestRoutineDraft(
+        apiKey,
+        model,
+        chunkContext,
+        allowedExerciseIds,
+      );
+      const parsed = aiRoutineSchema.safeParse(rawChunk);
+
+      if (!parsed.success) {
+        throw new BadRequestException(
+          'AI response did not match the expected routine structure.',
+        );
+      }
+
+      chunks.push(parsed.data);
+    }
+
+    return {
+      summary: chunks[0]?.summary ?? 'Rutina generada con IA.',
+      weeklyStructure:
+        chunks[0]?.weeklyStructure ??
+        `Rutina de ${targetDayCount} dias de entrenamiento.`,
+      muscleDistribution: this.uniqueStrings(
+        chunks.flatMap((chunk) => chunk.muscleDistribution),
+      ),
+      catalogWarnings: this.uniqueStrings(
+        chunks.flatMap((chunk) => chunk.catalogWarnings),
+      ),
+      days: chunks.flatMap((chunk) => chunk.days),
+    };
+  }
+
+  private buildChunkContext(
+    context: Record<string, unknown>,
+    startDay: number,
+    endDay: number,
+  ) {
+    const exactDays = endDay - startDay + 1;
+    const rules = this.asRecord(context.rules);
+
+    return {
+      ...context,
+      rules: {
+        ...rules,
+        exactDays,
+        dayOrderStart: startDay,
+        dayOrderEnd: endDay,
+      },
+      chunk: {
+        dayOrderStart: startDay,
+        dayOrderEnd: endDay,
+        exactDays,
+        instruction:
+          'Generate only this day-order range. Do not generate days outside this range.',
+      },
+    };
   }
 
   private systemPrompt() {
@@ -786,6 +857,10 @@ export class RoutineAiService {
       days: draft.days.length,
       exercises: draft.days.reduce((sum, day) => sum + day.exercises.length, 0),
     };
+  }
+
+  private uniqueStrings(values: string[]) {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
   }
 
   private async markAiLog(

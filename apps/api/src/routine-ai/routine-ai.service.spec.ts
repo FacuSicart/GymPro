@@ -55,7 +55,7 @@ describe('RoutineAiService', () => {
         const values: Record<string, unknown> = {
           OPENAI_API_KEY: 'test-key',
           AI_MODEL_ROUTINE_GENERATION: 'test-model',
-          AI_MAX_CATALOG_ITEMS: 80,
+          AI_MAX_CATALOG_ITEMS: 200,
         };
         return values[key];
       }),
@@ -120,6 +120,41 @@ describe('RoutineAiService', () => {
       }),
     );
   });
+
+  it('requests long routines in day batches to avoid oversized AI responses', async () => {
+    const { service } = createService();
+    const requestSpy = jest
+      .spyOn(service as never, 'requestRoutineDraft')
+      .mockImplementation(
+        async (
+          _apiKey: string,
+          _model: string,
+          context: { chunk: { dayOrderStart: number; dayOrderEnd: number } },
+        ) =>
+          aiDraft(
+            context.chunk.dayOrderStart,
+            context.chunk.dayOrderEnd,
+            '55555555-5555-4555-8555-555555555555',
+          ),
+      );
+
+    const result = await (
+      service as unknown as {
+        requestChunkedRoutineDraft: (
+          apiKey: string,
+          model: string,
+          context: Record<string, unknown>,
+          targetDayCount: number,
+          allowedExerciseIds: string[],
+        ) => Promise<{ days: Array<{ order: number }> }>;
+      }
+    ).requestChunkedRoutineDraft('key', 'model', { rules: {} }, 25, [
+      '55555555-5555-4555-8555-555555555555',
+    ]);
+
+    expect(requestSpy).toHaveBeenCalledTimes(3);
+    expect(result.days).toHaveLength(25);
+  });
 });
 
 function catalogExercise(id: string, name: string) {
@@ -152,5 +187,20 @@ function aiExercise(exerciseId: string, order: number) {
     rir: 2,
     rpe: 8,
     observations: 'Ejecutar con control.',
+  };
+}
+
+function aiDraft(startDay: number, endDay: number, exerciseId: string) {
+  return {
+    summary: 'Rutina de prueba',
+    weeklyStructure: 'Full Body',
+    muscleDistribution: ['Piernas'],
+    catalogWarnings: [],
+    days: Array.from({ length: endDay - startDay + 1 }, (_, index) => ({
+      name: `Dia ${startDay + index}`,
+      order: startDay + index,
+      focus: 'Full Body',
+      exercises: [aiExercise(exerciseId, 1)],
+    })),
   };
 }

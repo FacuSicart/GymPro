@@ -266,6 +266,22 @@ export default function RoutineDetailPage() {
     setActiveDayIndex((current) => Math.max(0, Math.min(current, days.length - 2)));
   }
 
+  function duplicateDay(index: number) {
+    setDays((current) => {
+      const source = current[index];
+      if (!source) return current;
+
+      const duplicated: DayDraft = {
+        ...source,
+        exercises: source.exercises.map((exercise) => ({ ...exercise })),
+      };
+      const next = [...current];
+      next.splice(index + 1, 0, duplicated);
+      return normalizeOrders(next);
+    });
+    setActiveDayIndex(index + 1);
+  }
+
   function moveDay(index: number, direction: -1 | 1) {
     setDays((current) => {
       const target = index + direction;
@@ -278,6 +294,10 @@ export default function RoutineDetailPage() {
   }
 
   function startDayDrag(event: React.DragEvent, dayIndex: number) {
+    if (isInteractiveDragTarget(event.target)) {
+      event.preventDefault();
+      return;
+    }
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', `day:${dayIndex}`);
   }
@@ -344,6 +364,22 @@ export default function RoutineDetailPage() {
             ? { ...day, exercises: day.exercises.filter((_, i) => i !== exerciseIndex) }
             : day,
         ),
+      ),
+    );
+  }
+
+  function duplicateExercise(dayIndex: number, exerciseIndex: number) {
+    setDays((current) =>
+      normalizeOrders(
+        current.map((day, index) => {
+          if (index !== dayIndex) return day;
+          const source = day.exercises[exerciseIndex];
+          if (!source) return day;
+
+          const exercises = [...day.exercises];
+          exercises.splice(exerciseIndex + 1, 0, { ...source });
+          return { ...day, exercises };
+        }),
       ),
     );
   }
@@ -777,8 +813,8 @@ export default function RoutineDetailPage() {
         {days.length ? (
           <div className="flex flex-wrap gap-2 rounded-[8px] border border-[#dde5df] bg-white p-3">
             {days.map((day, index) => (
-              <button
-                className={`h-9 rounded-[8px] px-3 text-xs font-black transition ${
+              <div
+                className={`flex min-h-9 cursor-pointer items-center overflow-hidden rounded-[8px] pl-3 pr-3 text-xs font-black transition ${
                   index === activeDayIndex
                     ? 'bg-[#087a3d] text-white'
                     : 'border border-[#d8dee6] text-[#334155] hover:bg-[#f8faf9]'
@@ -790,10 +826,22 @@ export default function RoutineDetailPage() {
                 onDragStart={(event) => startDayDrag(event, index)}
                 onDrop={(event) => canMutate && dropDay(event, index)}
                 title={canMutate ? 'Arrastrar para reordenar dias' : undefined}
-                type="button"
               >
                 {day.name} · {day.exercises.length} ej.
-              </button>
+                {canMutate ? (
+                  <div className={`ml-3 flex h-9 border-l ${index === activeDayIndex ? 'border-white/25' : 'border-[#d8dee6]'}`}>
+                    <button className="h-9 w-8 disabled:opacity-35" disabled={index === 0} onClick={(event) => { event.stopPropagation(); moveDay(index, -1); }} title="Subir dia" type="button">
+                      ^
+                    </button>
+                    <button className="h-9 w-8 disabled:opacity-35" disabled={index === days.length - 1} onClick={(event) => { event.stopPropagation(); moveDay(index, 1); }} title="Bajar dia" type="button">
+                      v
+                    </button>
+                    <button className="h-9 w-8" onClick={(event) => { event.stopPropagation(); duplicateDay(index); }} title="Duplicar dia" type="button">
+                      +
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ))}
             {canMutate ? (
               <button className="h-9 rounded-[8px] bg-[#eaf6ef] px-3 text-xs font-black text-[#087a3d]" onClick={addDay} type="button">
@@ -815,6 +863,7 @@ export default function RoutineDetailPage() {
                 <div className="flex flex-wrap gap-2">
                   <button className="h-8 rounded-[8px] border border-[#d8dee6] px-2.5 text-xs font-black text-[#334155]" onClick={() => moveDay(dayIndex, -1)} type="button">Subir</button>
                   <button className="h-8 rounded-[8px] border border-[#d8dee6] px-2.5 text-xs font-black text-[#334155]" onClick={() => moveDay(dayIndex, 1)} type="button">Bajar</button>
+                  <button className="h-8 rounded-[8px] border border-[#d8dee6] px-2.5 text-xs font-black text-[#334155]" onClick={() => duplicateDay(dayIndex)} type="button">Duplicar</button>
                   <button className="h-8 rounded-[8px] border border-[#f3c5c1] px-2.5 text-xs font-black text-[#b3261e]" onClick={() => removeDay(dayIndex)} type="button">Eliminar</button>
                 </div>
               ) : null}
@@ -857,6 +906,7 @@ export default function RoutineDetailPage() {
                         <div className="flex flex-wrap gap-2">
                           <button className="h-7 rounded-[8px] border border-[#d8dee6] px-2.5 text-xs font-black text-[#334155]" onClick={() => moveExercise(dayIndex, exerciseIndex, -1)} type="button">Subir</button>
                           <button className="h-7 rounded-[8px] border border-[#d8dee6] px-2.5 text-xs font-black text-[#334155]" onClick={() => moveExercise(dayIndex, exerciseIndex, 1)} type="button">Bajar</button>
+                          <button className="h-7 rounded-[8px] border border-[#d8dee6] px-2.5 text-xs font-black text-[#334155]" onClick={() => duplicateExercise(dayIndex, exerciseIndex)} type="button">Duplicar</button>
                           <button className="h-7 rounded-[8px] border border-[#f3c5c1] px-2.5 text-xs font-black text-[#b3261e]" onClick={() => removeExercise(dayIndex, exerciseIndex)} type="button">Eliminar</button>
                         </div>
                       ) : null}

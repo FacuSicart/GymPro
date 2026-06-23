@@ -33,7 +33,7 @@ const envSchema = z.object({
   OPENAI_API_KEY: optionalString,
   AI_MODEL_ROUTINE_GENERATION: optionalString,
   AI_MODEL_SUMMARY: optionalString,
-  AI_MAX_CATALOG_ITEMS: z.coerce.number().int().positive().default(80),
+  AI_MAX_CATALOG_ITEMS: z.coerce.number().int().positive().default(200),
   SMTP_HOST: optionalString,
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_SECURE: envBoolean.default(false),
