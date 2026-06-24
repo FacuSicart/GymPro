@@ -284,13 +284,15 @@ export default function StudentsPage() {
             Gestioná el perfil deportivo y seguimiento de tus alumnos.
           </p>
         </div>
-        <Link
-          className="flex h-11 items-center gap-2 rounded-xl bg-[#087a3d] px-5 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(8,122,61,0.2)] transition hover:bg-[#076b36]"
-          href="/students/new"
-        >
-          <Icon className="h-4 w-4" type="plus" />
-          Nuevo alumno
-        </Link>
+        {!isAdmin ? (
+          <Link
+            className="flex h-11 items-center gap-2 rounded-xl bg-[#087a3d] px-5 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(8,122,61,0.2)] transition hover:bg-[#076b36]"
+            href="/students/new"
+          >
+            <Icon className="h-4 w-4" type="plus" />
+            Nuevo alumno
+          </Link>
+        ) : null}
       </div>
 
       <section className="mt-7 overflow-hidden rounded-[14px] border border-[#e5e7eb] bg-white shadow-[0_2px_12px_rgba(15,23,42,0.04)]">

@@ -16,10 +16,13 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import type { User } from '@prisma/client';
 import { ActiveUserGuard } from '../auth/active-user.guard';
 import { CurrentUser } from '../auth/current-user';
 import { LocalJwtAuthGuard } from '../auth/local-jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { PaginationQueryDto } from '../common/pagination-query.dto';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -28,7 +31,7 @@ import { StudentsService } from './students.service';
 @ApiTags('students')
 @ApiBearerAuth()
 @Controller('students')
-@UseGuards(LocalJwtAuthGuard, ActiveUserGuard)
+@UseGuards(LocalJwtAuthGuard, ActiveUserGuard, RolesGuard)
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
@@ -39,6 +42,7 @@ export class StudentsController {
   }
 
   @Post()
+  @Roles(UserRole.TRAINER)
   @ApiCreatedResponse({ description: 'Student created with initial profile.' })
   createStudent(@CurrentUser() user: User, @Body() dto: CreateStudentDto) {
     return this.studentsService.createStudent(user, dto);

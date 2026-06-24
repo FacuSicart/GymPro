@@ -47,6 +47,10 @@ export class StudentsService {
   }
 
   async createStudent(user: User, dto: CreateStudentDto) {
+    if (user.role !== UserRole.TRAINER) {
+      throw new ForbiddenException('Trainer role is required.');
+    }
+
     const trainer = await this.resolveTrainer(user, dto.trainerId);
     const profileData = this.buildProfileData(dto.profile);
     const email = this.normalizeOptionalEmail(dto.email);

@@ -1,4 +1,9 @@
+'use client';
+
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { apiFetch, LocalUser } from '@/lib/api';
 import { StudentForm } from '../student-form';
 
 function Icon({ className = 'h-5 w-5' }: { className?: string }) {
@@ -16,6 +21,34 @@ function Icon({ className = 'h-5 w-5' }: { className?: string }) {
 }
 
 export default function NewStudentPage() {
+  const router = useRouter();
+  const [allowed, setAllowed] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const response = await apiFetch<{ user: LocalUser }>('/auth/session');
+        if (response.user.role !== 'TRAINER') {
+          router.replace('/students');
+          return;
+        }
+
+        setAllowed(true);
+      } catch {
+        router.replace('/access-status');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadSession();
+  }, [router]);
+
+  if (loading || !allowed) {
+    return <p className="text-sm text-[#475569]">Cargando...</p>;
+  }
+
   return (
     <>
       <div className="mb-6 flex items-center gap-2 text-sm text-[#64748b]">
