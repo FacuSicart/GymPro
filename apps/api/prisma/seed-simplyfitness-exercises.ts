@@ -2984,16 +2984,18 @@ const simplyFitnessExercises = [
   > & { sourceUrl: string; sourceGroup: string }
 >;
 
-function assertLocalDevelopment() {
+function assertAllowedEnvironment() {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const isLocalDatabase =
     connectionString?.includes('localhost') ||
     connectionString?.includes('127.0.0.1');
+  const allowProductionSeed =
+    process.env.ALLOW_PRODUCTION_EXERCISE_SEED === 'true';
 
-  if (!isDevelopment || !isLocalDatabase) {
+  if ((!isDevelopment || !isLocalDatabase) && !allowProductionSeed) {
     throw new Error(
       [
-        'Refusing to delete and reseed exercises outside local/dev.',
+        'Refusing to seed exercises outside local/dev without ALLOW_PRODUCTION_EXERCISE_SEED=true.',
         `NODE_ENV=${process.env.NODE_ENV ?? '(empty)'}`,
         `DATABASE_URL=${connectionString ?? '(empty)'}`,
       ].join(' '),
@@ -3016,7 +3018,7 @@ function assertNoDuplicateNames(records: typeof simplyFitnessExercises) {
 }
 
 async function main() {
-  assertLocalDevelopment();
+  assertAllowedEnvironment();
   assertNoDuplicateNames(simplyFitnessExercises);
 
   const admin = await prisma.user.findFirst({
