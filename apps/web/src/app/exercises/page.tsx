@@ -72,7 +72,13 @@ function Icon({
   );
 }
 
-function buildQuery(filters: Filters) {
+const API_PAGE_SIZE = 100;
+const TABLE_PAGE_SIZE = 10;
+
+function buildQuery(
+  filters: Filters,
+  pagination?: { page: number; limit: number },
+) {
   const params = new URLSearchParams();
 
   for (const [key, value] of Object.entries(filters)) {
@@ -81,9 +87,35 @@ function buildQuery(filters: Filters) {
     }
   }
 
+  if (pagination) {
+    params.set('page', String(pagination.page));
+    params.set('limit', String(pagination.limit));
+  }
+
   const query = params.toString();
 
   return query ? `?${query}` : '';
+}
+
+async function fetchAllExercises(filters: Filters) {
+  const rows: Exercise[] = [];
+  let page = 1;
+
+  while (true) {
+    const pageRows = await apiFetch<Exercise[]>(
+      `/exercises${buildQuery(filters, { page, limit: API_PAGE_SIZE })}`,
+    );
+
+    rows.push(...pageRows);
+
+    if (pageRows.length < API_PAGE_SIZE) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return rows;
 }
 
 function uniqueValues(exercises: Exercise[], key: keyof Pick<Exercise, 'primaryMuscleGroup' | 'equipmentNeeded' | 'movementPattern'>) {
@@ -212,7 +244,7 @@ export default function ExercisesPage() {
     setError('');
 
     try {
-      const rows = await apiFetch<Exercise[]>(`/exercises${buildQuery(nextFilters)}`);
+      const rows = await fetchAllExercises(nextFilters);
       setExercises(rows);
       if (!buildQuery(nextFilters)) {
         setAllExercises(rows);
@@ -235,7 +267,10 @@ export default function ExercisesPage() {
       try {
         const response = await apiFetch<{ user: LocalUser }>('/auth/session');
         setUser(response.user);
-        const [catalogRows, proposalRows] = await Promise.all([apiFetch<Exercise[]>('/exercises'), loadProposals()]);
+        const [catalogRows, proposalRows] = await Promise.all([
+          fetchAllExercises(emptyFilters),
+          loadProposals(),
+        ]);
         setExercises(catalogRows);
         setAllExercises(catalogRows);
         if (window.location.hash === '#propuestas') {
@@ -308,7 +343,7 @@ export default function ExercisesPage() {
       });
 
       const [catalogRows, proposalRows] = await Promise.all([
-        apiFetch<Exercise[]>(`/exercises${buildQuery(filters)}`),
+        fetchAllExercises(filters),
         loadProposals(),
       ]);
       setExercises(catalogRows);
@@ -327,9 +362,8 @@ export default function ExercisesPage() {
   }
 
   const visibleRows = showMine ? proposals : exercises;
-  const PAGE_SIZE = 10;
-  const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
-  const pagedRows = showMine ? visibleRows : visibleRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / TABLE_PAGE_SIZE));
+  const pagedRows = showMine ? visibleRows : visibleRows.slice((page - 1) * TABLE_PAGE_SIZE, page * TABLE_PAGE_SIZE);
 
   return (
     <div className="space-y-7">
@@ -578,7 +612,7 @@ export default function ExercisesPage() {
           {totalPages > 1 ? (
             <div className="flex items-center justify-between border-t border-[#e8eee9] px-6 py-4">
               <p className="text-sm text-[#6b7280]">
-                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, visibleRows.length)} de {visibleRows.length} ejercicios
+                {(page - 1) * TABLE_PAGE_SIZE + 1}–{Math.min(page * TABLE_PAGE_SIZE, visibleRows.length)} de {visibleRows.length} ejercicios
               </p>
               <div className="flex items-center gap-1">
                 <button

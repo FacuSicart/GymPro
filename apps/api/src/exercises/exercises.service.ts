@@ -393,18 +393,21 @@ export class ExercisesService {
       | 'movementPattern',
     where: Prisma.ExerciseWhereInput,
   ) {
-    const rows = await this.prisma.exercise.groupBy({
-      by: [field],
+    const rows = await this.prisma.exercise.findMany({
       where,
-      _count: { _all: true },
-      orderBy: { _count: { [field]: 'desc' } },
+      select: { [field]: true },
     });
 
-    return rows.map((row) => {
-      const count = row._count._all;
+    const counts = rows.reduce<Record<string, number>>((accumulator, row) => {
+      const value = String(row[field]);
+      accumulator[value] = (accumulator[value] ?? 0) + 1;
+      return accumulator;
+    }, {});
 
-      return {
-        value: String(row[field]),
+    return Object.entries(counts)
+      .sort(([, leftCount], [, rightCount]) => rightCount - leftCount)
+      .map(([value, count]) => ({
+        value,
         count,
         status:
           count === 0
@@ -412,8 +415,7 @@ export class ExercisesService {
             : count < 2
               ? 'LOW_COVERAGE'
               : 'SUFFICIENT',
-      };
-    });
+      }));
   }
 
   private normalizeTextList(values?: string[]) {
