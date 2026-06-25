@@ -20,6 +20,12 @@ import { UpdateExerciseDto } from './dto/update-exercise.dto';
 import { toPublicExercise, toPublicExercises } from './exercise-presenter';
 
 const textSearchMode = 'insensitive' satisfies Prisma.QueryMode;
+const expectedExerciseGoals = ['STRENGTH', 'MOBILITY', 'ENDURANCE', 'POWER', 'CORE'];
+
+type CoverageCountRow = {
+  value: string;
+  count: bigint | number;
+};
 
 @Injectable()
 export class ExercisesService {
@@ -50,11 +56,6 @@ export class ExercisesService {
   async getCoverage(user: User) {
     this.assertAdmin(user);
 
-    const approvedActiveWhere = {
-      approvalStatus: ExerciseApprovalStatus.APPROVED,
-      operationalStatus: ExerciseOperationalStatus.ACTIVE,
-    };
-
     const [
       muscleGroups,
       goals,
@@ -62,14 +63,11 @@ export class ExercisesService {
       equipmentTypes,
       movementPatterns,
     ] = await Promise.all([
-      this.groupApprovedActiveBy('primaryMuscleGroup', approvedActiveWhere),
-      this.buildEnumArrayCoverage(
-        Object.values(ExerciseGoal),
-        approvedActiveWhere,
-      ),
-      this.groupApprovedActiveBy('equipmentNeeded', approvedActiveWhere),
-      this.groupApprovedActiveBy('equipmentType', approvedActiveWhere),
-      this.groupApprovedActiveBy('movementPattern', approvedActiveWhere),
+      this.groupApprovedActiveBy('primary_muscle_group'),
+      this.buildEnumArrayCoverage(expectedExerciseGoals),
+      this.groupApprovedActiveBy('equipment_needed'),
+      this.groupApprovedActiveBy('equipment_type'),
+      this.groupApprovedActiveBy('movement_pattern'),
     ]);
 
     return {
@@ -387,35 +385,23 @@ export class ExercisesService {
 
   private async groupApprovedActiveBy(
     field:
-      | 'primaryMuscleGroup'
-      | 'equipmentNeeded'
-      | 'equipmentType'
-      | 'movementPattern',
-    where: Prisma.ExerciseWhereInput,
+      | 'primary_muscle_group'
+      | 'equipment_needed'
+      | 'equipment_type'
+      | 'movement_pattern',
   ) {
-    const rows = await this.prisma.exercise.findMany({
-      where,
-      select: { [field]: true },
-    });
+    const rows = await this.prisma.$queryRaw<CoverageCountRow[]>(
+      Prisma.sql`
+        SELECT ${Prisma.raw(field)}::text AS value, COUNT(*)::bigint AS count
+        FROM exercises
+        WHERE approval_status = 'APPROVED'
+          AND operational_status = 'ACTIVE'
+        GROUP BY ${Prisma.raw(field)}
+        ORDER BY COUNT(*) DESC
+      `,
+    );
 
-    const counts = rows.reduce<Record<string, number>>((accumulator, row) => {
-      const value = String(row[field]);
-      accumulator[value] = (accumulator[value] ?? 0) + 1;
-      return accumulator;
-    }, {});
-
-    return Object.entries(counts)
-      .sort(([, leftCount], [, rightCount]) => rightCount - leftCount)
-      .map(([value, count]) => ({
-        value,
-        count,
-        status:
-          count === 0
-            ? 'NO_COVERAGE'
-            : count < 2
-              ? 'LOW_COVERAGE'
-              : 'SUFFICIENT',
-      }));
+    return rows.map((row) => this.toCoverageBucket(row.value, Number(row.count)));
   }
 
   private normalizeTextList(values?: string[]) {
@@ -426,29 +412,35 @@ export class ExercisesService {
     return [...new Set(values)];
   }
 
-  private async buildEnumArrayCoverage(
-    expectedValues: string[],
-    where: Prisma.ExerciseWhereInput,
-  ) {
-    const rows = await this.prisma.exercise.findMany({
-      where,
-      select: { goals: true },
-    });
+  private async buildEnumArrayCoverage(expectedValues: string[]) {
+    const rows = await this.prisma.$queryRaw<CoverageCountRow[]>(
+      Prisma.sql`
+        SELECT goal.value::text AS value, COUNT(*)::bigint AS count
+        FROM exercises
+        CROSS JOIN LATERAL unnest(goals) AS goal(value)
+        WHERE approval_status = 'APPROVED'
+          AND operational_status = 'ACTIVE'
+        GROUP BY goal.value
+      `,
+    );
+    const counts = new Map(rows.map((row) => [row.value, Number(row.count)]));
 
-    return expectedValues.map((value) => {
-      const count = rows.filter((row) => row.goals.includes(value as never)).length;
+    return expectedValues.map((value) =>
+      this.toCoverageBucket(value, counts.get(value) ?? 0),
+    );
+  }
 
-      return {
-        value,
-        count,
-        status:
-          count === 0
-            ? 'NO_COVERAGE'
-            : count < 2
-              ? 'LOW_COVERAGE'
-              : 'SUFFICIENT',
-      };
-    });
+  private toCoverageBucket(value: string, count: number) {
+    return {
+      value,
+      count,
+      status:
+        count === 0
+          ? 'NO_COVERAGE'
+          : count < 2
+            ? 'LOW_COVERAGE'
+            : 'SUFFICIENT',
+    };
   }
 
   private normalizeOptionalText(value?: string | null) {
