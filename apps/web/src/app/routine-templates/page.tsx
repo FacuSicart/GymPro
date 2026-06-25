@@ -64,7 +64,8 @@ export default function RoutineTemplatesPage() {
   }
 
   useEffect(() => {
-    void load();
+    const timeoutId = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -81,6 +82,7 @@ export default function RoutineTemplatesPage() {
 
   const totalPages = Math.max(1, Math.ceil(templates.length / pageSize));
   const paginatedTemplates = templates.slice((page - 1) * pageSize, page * pageSize);
+  const isAdmin = user?.role === 'ADMIN';
 
   return (
     <div className="space-y-7">
@@ -135,10 +137,11 @@ export default function RoutineTemplatesPage() {
       {!loading ? (
         <section className="overflow-hidden rounded-[14px] border border-[#dfe5e1] bg-white shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[960px] border-collapse text-left text-sm">
               <thead className="text-[#7c8783]">
                 <tr className="border-b border-[#e8eee9]">
                   <th className="px-6 py-4 font-black">Plantilla</th>
+                  {isAdmin ? <th className="px-6 py-4 font-black">Entrenador</th> : null}
                   <th className="px-6 py-4 font-black">Objetivo</th>
                   <th className="px-6 py-4 font-black">Estado</th>
                   <th className="px-6 py-4 font-black">Actualizada</th>
@@ -154,6 +157,11 @@ export default function RoutineTemplatesPage() {
                         {template.days.length} dias - {template.days.reduce((sum, day) => sum + day.exercises.length, 0)} ejercicios
                       </p>
                     </td>
+                    {isAdmin ? (
+                      <td className="px-6 py-4 text-[#1f2937]">
+                        {template.trainer.firstName} {template.trainer.lastName}
+                      </td>
+                    ) : null}
                     <td className="px-6 py-4 text-[#1f2937]">
                       {template.goal ? goalLabels[template.goal] : '-'}
                     </td>
@@ -172,7 +180,7 @@ export default function RoutineTemplatesPage() {
                 ))}
                 {!paginatedTemplates.length ? (
                   <tr>
-                    <td className="px-6 py-10 text-center text-[#64748b]" colSpan={5}>
+                    <td className="px-6 py-10 text-center text-[#64748b]" colSpan={isAdmin ? 6 : 5}>
                       No hay plantillas para esta vista.
                     </td>
                   </tr>

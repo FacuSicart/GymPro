@@ -11,3 +11,4 @@ linkedin-showcase/
 generated
 *.log
 docs/
+tmp/

@@ -42,7 +42,7 @@ describe('RoutineTemplatesService', () => {
     equipmentNeeded: 'Barra',
     equipmentType: 'libre',
     levels: ['BEGINNER'],
-    goals: [ExerciseGoal.HYPERTROPHY],
+    goals: [ExerciseGoal.STRENGTH],
     technicalInstructions: 'tecnica',
     commonMistakes: null,
     contraindications: null,
@@ -55,7 +55,7 @@ describe('RoutineTemplatesService', () => {
     tenantId: trainer.tenantId,
     name: 'Fuerza 3 dias',
     description: null,
-    goal: ExerciseGoal.HYPERTROPHY,
+    goal: ExerciseGoal.STRENGTH,
     status: RoutineTemplateStatus.ACTIVE,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
@@ -175,7 +175,7 @@ describe('RoutineTemplatesService', () => {
 
     await service.createTemplate(trainer as never, {
       name: ' Fuerza 3 dias ',
-      goal: ExerciseGoal.HYPERTROPHY,
+      goal: ExerciseGoal.STRENGTH,
       days: [
         {
           name: 'Dia 1',
@@ -202,6 +202,19 @@ describe('RoutineTemplatesService', () => {
     await expect(
       service.createTemplate(admin as never, { name: 'Base' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('allows admins to list templates across all tenants', async () => {
+    prisma.routineTemplate.findMany.mockResolvedValue([template]);
+    const service = new RoutineTemplatesService(prisma as never);
+
+    await service.listTemplates(admin as never, {});
+
+    expect(prisma.routineTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {},
+      }),
+    );
   });
 
   it('rejects templates with unavailable catalog exercises', async () => {

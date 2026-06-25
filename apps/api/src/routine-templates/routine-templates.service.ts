@@ -282,7 +282,7 @@ export class RoutineTemplatesService {
       return { trainerId: user.id };
     }
 
-    return { tenantId: user.tenantId };
+    return {};
   }
 
   private async findAccessibleTemplate(user: User, templateId: string) {
