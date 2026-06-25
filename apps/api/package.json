@@ -19,7 +19,7 @@
     "prisma:studio": "prisma studio",
     "seed:first-admin": "ts-node prisma/seed-first-admin.ts",
     "seed:exercises": "ts-node prisma/seed-exercises.ts",
-    "seed:exercises:production": "ts-node prisma/seed-simplyfitness-exercises.ts",
+    "seed:exercises:production": "ts-node --transpile-only prisma/seed-simplyfitness-exercises.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
