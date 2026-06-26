@@ -27,6 +27,7 @@ export type AuthProfile = {
 };
 
 export type LoginResponse = {
+  accessToken: string;
   user: LocalUser;
   canAccessInternalApp: boolean;
 };
@@ -602,13 +603,21 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const token = getStoredAccessToken();
+  const headers = new Headers(options.headers);
+
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...options,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -641,19 +650,52 @@ function getApiBaseUrl() {
   return configuredUrl.toString().replace(/\/$/, '');
 }
 
+const accessTokenStorageKey = 'pg_access_token';
+
+function getStoredAccessToken() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.localStorage.getItem(accessTokenStorageKey);
+}
+
+function setStoredAccessToken(token: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(accessTokenStorageKey, token);
+}
+
+function clearStoredAccessToken() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(accessTokenStorageKey);
+}
+
 export function getProfile() {
   return apiFetch<AuthProfile>('/auth/me');
 }
 
-export function login(email: string, password: string) {
-  return apiFetch<LoginResponse>('/auth/login', {
+export async function login(email: string, password: string) {
+  const response = await apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
+
+  setStoredAccessToken(response.accessToken);
+  return response;
 }
 
-export function logout() {
-  return apiFetch<{ loggedOut: boolean }>('/auth/logout', {
-    method: 'POST',
-  });
+export async function logout() {
+  try {
+    return await apiFetch<{ loggedOut: boolean }>('/auth/logout', {
+      method: 'POST',
+    });
+  } finally {
+    clearStoredAccessToken();
+  }
 }

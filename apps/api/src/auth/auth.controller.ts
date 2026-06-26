@@ -33,6 +33,7 @@ export class AuthController {
     this.setAccessTokenCookie(response, result.accessToken);
 
     return {
+      accessToken: result.accessToken,
       user: result.user,
       canAccessInternalApp: result.canAccessInternalApp,
     };
