@@ -205,6 +205,72 @@ describe('RoutineAiService', () => {
           '66666666-6666-4666-8666-666666666666',
           '77777777-7777-4777-8777-777777777777',
         ]),
+        exercisePrimaryMuscles: new Map([
+          ['55555555-5555-4555-8555-555555555555', 'Piernas'],
+          ['66666666-6666-4666-8666-666666666666', 'Pecho'],
+          ['77777777-7777-4777-8777-777777777777', 'Espalda'],
+        ]),
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects AI output that repeats a primary muscle across consecutive days', () => {
+    const { service } = createService();
+    const draft = {
+      summary: 'Rutina de prueba',
+      weeklyStructure: 'Full Body',
+      muscleDistribution: ['Espalda'],
+      catalogWarnings: [],
+      days: [
+        {
+          name: 'Dia 1',
+          order: 1,
+          focus: 'Espalda',
+          exercises: [
+            aiExercise('55555555-5555-4555-8555-555555555555', 1),
+            aiExercise('66666666-6666-4666-8666-666666666666', 2),
+          ],
+        },
+        {
+          name: 'Dia 2',
+          order: 2,
+          focus: 'Espalda',
+          exercises: [
+            aiExercise('77777777-7777-4777-8777-777777777777', 1),
+            aiExercise('88888888-8888-4888-8888-888888888888', 2),
+          ],
+        },
+      ],
+    };
+
+    expect(() =>
+      (
+        service as unknown as {
+          validateAiDraft: (
+            draft: typeof draft,
+            input: {
+              targetDayCount: number;
+              exercisesPerDay: number;
+              allowedExerciseIds: Set<string>;
+              exercisePrimaryMuscles: Map<string, string>;
+            },
+          ) => void;
+        }
+      ).validateAiDraft(draft, {
+        targetDayCount: 2,
+        exercisesPerDay: 2,
+        allowedExerciseIds: new Set([
+          '55555555-5555-4555-8555-555555555555',
+          '66666666-6666-4666-8666-666666666666',
+          '77777777-7777-4777-8777-777777777777',
+          '88888888-8888-4888-8888-888888888888',
+        ]),
+        exercisePrimaryMuscles: new Map([
+          ['55555555-5555-4555-8555-555555555555', 'Espalda'],
+          ['66666666-6666-4666-8666-666666666666', 'Biceps'],
+          ['77777777-7777-4777-8777-777777777777', 'Espalda'],
+          ['88888888-8888-4888-8888-888888888888', 'Hombros'],
+        ]),
       }),
     ).toThrow(BadRequestException);
   });
@@ -246,10 +312,10 @@ describe('RoutineAiService', () => {
         ) => typeof draft;
       }
     ).replaceInvalidExerciseRepeats(draft, [
-      catalogExercise('55555555-5555-4555-8555-555555555555', 'Sentadilla'),
-      catalogExercise('66666666-6666-4666-8666-666666666666', 'Press banca'),
-      catalogExercise('77777777-7777-4777-8777-777777777777', 'Remo'),
-      catalogExercise('88888888-8888-4888-8888-888888888888', 'Peso muerto'),
+      catalogExercise('55555555-5555-4555-8555-555555555555', 'Sentadilla', 'Piernas'),
+      catalogExercise('66666666-6666-4666-8666-666666666666', 'Press banca', 'Pecho'),
+      catalogExercise('77777777-7777-4777-8777-777777777777', 'Remo', 'Espalda'),
+      catalogExercise('88888888-8888-4888-8888-888888888888', 'Peso muerto', 'Gluteos'),
     ]);
 
     const firstDayIds = new Set(
@@ -263,14 +329,66 @@ describe('RoutineAiService', () => {
       'Reemplazo automatico por repeticion de ejercicio',
     );
   });
+
+  it('replaces repeated primary muscles across consecutive days when catalog allows it', () => {
+    const { service } = createService();
+    const draft = {
+      summary: 'Rutina de prueba',
+      weeklyStructure: 'Full Body',
+      muscleDistribution: ['Espalda'],
+      catalogWarnings: [],
+      days: [
+        {
+          name: 'Dia 1',
+          order: 1,
+          focus: 'Espalda',
+          exercises: [
+            aiExercise('55555555-5555-4555-8555-555555555555', 1),
+            aiExercise('66666666-6666-4666-8666-666666666666', 2),
+          ],
+        },
+        {
+          name: 'Dia 2',
+          order: 2,
+          focus: 'Espalda',
+          exercises: [
+            aiExercise('77777777-7777-4777-8777-777777777777', 1),
+            aiExercise('88888888-8888-4888-8888-888888888888', 2),
+          ],
+        },
+      ],
+    };
+
+    const result = (
+      service as unknown as {
+        replaceInvalidExerciseRepeats: (
+          draft: typeof draft,
+          catalog: ReturnType<typeof catalogExercise>[],
+        ) => typeof draft;
+      }
+    ).replaceInvalidExerciseRepeats(draft, [
+      catalogExercise('55555555-5555-4555-8555-555555555555', 'Remo', 'Espalda'),
+      catalogExercise('66666666-6666-4666-8666-666666666666', 'Curl', 'Biceps'),
+      catalogExercise('77777777-7777-4777-8777-777777777777', 'Jalon', 'Espalda'),
+      catalogExercise('88888888-8888-4888-8888-888888888888', 'Press militar', 'Hombros'),
+      catalogExercise('99999999-9999-4999-8999-999999999999', 'Sentadilla', 'Piernas'),
+    ]);
+
+    expect(result.days[1].exercises[0].exerciseId).toBe(
+      '88888888-8888-4888-8888-888888888888',
+    );
+    expect(result.days[1].exercises[0].observations).toContain(
+      'Reemplazo automatico por repeticion de ejercicio',
+    );
+  });
 });
 
-function catalogExercise(id: string, name: string) {
+function catalogExercise(id: string, name: string, primaryMuscleGroup = 'Piernas') {
   return {
     id,
     name,
     description: `${name} descripcion`,
-    primaryMuscleGroup: 'Piernas',
+    primaryMuscleGroup,
     secondaryMuscleGroups: [],
     movementPattern: 'Sentadilla',
     levels: ['BEGINNER'],

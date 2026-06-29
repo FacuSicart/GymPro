@@ -168,6 +168,9 @@ export class RoutineAiService {
           targetDayCount,
           exercisesPerDay: dto.exercisesPerDay,
           allowedExerciseIds: new Set(catalog.map((exercise) => exercise.id)),
+          exercisePrimaryMuscles: new Map(
+            catalog.map((exercise) => [exercise.id, exercise.primaryMuscleGroup]),
+          ),
         });
       } catch (error) {
         await this.markAiLog(aiLog.id, AiLogStatus.REJECTED_RULES, {
@@ -331,7 +334,7 @@ export class RoutineAiService {
         catalogPolicy:
           'Use exclusively exercise IDs present in allowedCatalog. Do not invent exercises.',
         exerciseVarietyPolicy:
-          'Do not repeat the same exercise inside a day or across two consecutive training days.',
+          'Do not repeat the same exercise or primary muscle group inside two consecutive training days.',
         medicalPolicy:
           'Do not diagnose, treat, prescribe rehabilitation, or give medical advice. Adapt selection conservatively.',
       },
@@ -521,6 +524,7 @@ export class RoutineAiService {
       'Never invent exercises, IDs, names, URLs, diagnoses, treatments, or rehabilitation advice.',
       'Generate exactly the requested number of days and exactly the requested number of exercises per day.',
       'Do not repeat the same exercise inside one day or across two consecutive training days.',
+      'Do not repeat any primary muscle group across two consecutive training days.',
       'Every exercise must include sets, repetitions, restSeconds, intensity, tempo, rir, rpe, and observations.',
       'Prioritize restrictions, recurrent discomfort, safety, goal, experience, weekly balance, and variety.',
       'Return JSON only, matching the schema.',
@@ -603,6 +607,7 @@ export class RoutineAiService {
       targetDayCount: number;
       exercisesPerDay: number;
       allowedExerciseIds: Set<string>;
+      exercisePrimaryMuscles: Map<string, string>;
     },
   ) {
     if (draft.days.length !== input.targetDayCount) {
@@ -617,6 +622,7 @@ export class RoutineAiService {
     );
 
     let previousDayExerciseIds = new Set<string>();
+    let previousDayPrimaryMuscles = new Set<string>();
     for (const day of draft.days) {
       if (day.exercises.length !== input.exercisesPerDay) {
         throw new BadRequestException(
@@ -629,10 +635,17 @@ export class RoutineAiService {
       );
 
       const dayExerciseIds = new Set<string>();
+      const dayPrimaryMuscles = new Set<string>();
       for (const item of day.exercises) {
         if (!input.allowedExerciseIds.has(item.exerciseId)) {
           throw new BadRequestException(
             'AI routine used an exercise outside the approved active catalog.',
+          );
+        }
+        const primaryMuscle = input.exercisePrimaryMuscles.get(item.exerciseId);
+        if (!primaryMuscle) {
+          throw new BadRequestException(
+            'AI routine used an exercise without catalog muscle metadata.',
           );
         }
         if (dayExerciseIds.has(item.exerciseId)) {
@@ -641,6 +654,7 @@ export class RoutineAiService {
           );
         }
         dayExerciseIds.add(item.exerciseId);
+        dayPrimaryMuscles.add(primaryMuscle);
       }
       for (const exerciseId of dayExerciseIds) {
         if (previousDayExerciseIds.has(exerciseId)) {
@@ -649,7 +663,15 @@ export class RoutineAiService {
           );
         }
       }
+      for (const primaryMuscle of dayPrimaryMuscles) {
+        if (previousDayPrimaryMuscles.has(primaryMuscle)) {
+          throw new BadRequestException(
+            'AI routine repeated a primary muscle group across consecutive days.',
+          );
+        }
+      }
       previousDayExerciseIds = dayExerciseIds;
+      previousDayPrimaryMuscles = dayPrimaryMuscles;
     }
   }
 
@@ -672,27 +694,39 @@ export class RoutineAiService {
     catalog: Awaited<ReturnType<RoutineAiService['loadCatalog']>>,
   ): AiRoutineDraft {
     let previousDayExerciseIds = new Set<string>();
+    let previousDayPrimaryMuscles = new Set<string>();
 
     return {
       ...draft,
       days: draft.days.map((day) => {
         const used = new Set<string>();
+        const usedPrimaryMuscles = new Set<string>();
         let nextReplacementIndex = 0;
 
         const nextDay = {
           ...day,
           exercises: day.exercises.map((exercise) => {
+            const catalogExercise = catalog.find(
+              (item) => item.id === exercise.exerciseId,
+            );
+            if (!catalogExercise) {
+              return exercise;
+            }
+
             if (
               !used.has(exercise.exerciseId) &&
-              !previousDayExerciseIds.has(exercise.exerciseId)
+              !previousDayExerciseIds.has(exercise.exerciseId) &&
+              !previousDayPrimaryMuscles.has(catalogExercise.primaryMuscleGroup)
             ) {
               used.add(exercise.exerciseId);
+              usedPrimaryMuscles.add(catalogExercise.primaryMuscleGroup);
               return exercise;
             }
 
             const replacement = this.nextUnusedExercise(
               catalog,
               new Set([...used, ...previousDayExerciseIds]),
+              previousDayPrimaryMuscles,
               nextReplacementIndex,
             );
 
@@ -702,6 +736,7 @@ export class RoutineAiService {
 
             nextReplacementIndex = replacement.nextIndex;
             used.add(replacement.exercise.id);
+            usedPrimaryMuscles.add(replacement.exercise.primaryMuscleGroup);
 
             return {
               ...exercise,
@@ -712,6 +747,7 @@ export class RoutineAiService {
         };
 
         previousDayExerciseIds = used;
+        previousDayPrimaryMuscles = usedPrimaryMuscles;
         return nextDay;
       }),
     };
@@ -720,13 +756,17 @@ export class RoutineAiService {
   private nextUnusedExercise(
     catalog: Awaited<ReturnType<RoutineAiService['loadCatalog']>>,
     used: Set<string>,
+    disallowedPrimaryMuscles: Set<string>,
     startIndex: number,
   ) {
     for (let offset = 0; offset < catalog.length; offset += 1) {
       const index = (startIndex + offset) % catalog.length;
       const exercise = catalog[index];
 
-      if (!used.has(exercise.id)) {
+      if (
+        !used.has(exercise.id) &&
+        !disallowedPrimaryMuscles.has(exercise.primaryMuscleGroup)
+      ) {
         return { exercise, nextIndex: index + 1 };
       }
     }
