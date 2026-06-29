@@ -155,6 +155,114 @@ describe('RoutineAiService', () => {
     expect(requestSpy).toHaveBeenCalledTimes(3);
     expect(result.days).toHaveLength(25);
   });
+
+  it('rejects AI output that repeats an exercise across consecutive days', () => {
+    const { service } = createService();
+    const draft = {
+      summary: 'Rutina de prueba',
+      weeklyStructure: 'Full Body',
+      muscleDistribution: ['Piernas'],
+      catalogWarnings: [],
+      days: [
+        {
+          name: 'Dia 1',
+          order: 1,
+          focus: 'Full Body',
+          exercises: [
+            aiExercise('55555555-5555-4555-8555-555555555555', 1),
+            aiExercise('66666666-6666-4666-8666-666666666666', 2),
+          ],
+        },
+        {
+          name: 'Dia 2',
+          order: 2,
+          focus: 'Full Body',
+          exercises: [
+            aiExercise('55555555-5555-4555-8555-555555555555', 1),
+            aiExercise('77777777-7777-4777-8777-777777777777', 2),
+          ],
+        },
+      ],
+    };
+
+    expect(() =>
+      (
+        service as unknown as {
+          validateAiDraft: (
+            draft: typeof draft,
+            input: {
+              targetDayCount: number;
+              exercisesPerDay: number;
+              allowedExerciseIds: Set<string>;
+            },
+          ) => void;
+        }
+      ).validateAiDraft(draft, {
+        targetDayCount: 2,
+        exercisesPerDay: 2,
+        allowedExerciseIds: new Set([
+          '55555555-5555-4555-8555-555555555555',
+          '66666666-6666-4666-8666-666666666666',
+          '77777777-7777-4777-8777-777777777777',
+        ]),
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('replaces repeated exercises across consecutive days when catalog allows it', () => {
+    const { service } = createService();
+    const draft = {
+      summary: 'Rutina de prueba',
+      weeklyStructure: 'Full Body',
+      muscleDistribution: ['Piernas'],
+      catalogWarnings: [],
+      days: [
+        {
+          name: 'Dia 1',
+          order: 1,
+          focus: 'Full Body',
+          exercises: [
+            aiExercise('55555555-5555-4555-8555-555555555555', 1),
+            aiExercise('66666666-6666-4666-8666-666666666666', 2),
+          ],
+        },
+        {
+          name: 'Dia 2',
+          order: 2,
+          focus: 'Full Body',
+          exercises: [
+            aiExercise('55555555-5555-4555-8555-555555555555', 1),
+            aiExercise('77777777-7777-4777-8777-777777777777', 2),
+          ],
+        },
+      ],
+    };
+
+    const result = (
+      service as unknown as {
+        replaceInvalidExerciseRepeats: (
+          draft: typeof draft,
+          catalog: ReturnType<typeof catalogExercise>[],
+        ) => typeof draft;
+      }
+    ).replaceInvalidExerciseRepeats(draft, [
+      catalogExercise('55555555-5555-4555-8555-555555555555', 'Sentadilla'),
+      catalogExercise('66666666-6666-4666-8666-666666666666', 'Press banca'),
+      catalogExercise('77777777-7777-4777-8777-777777777777', 'Remo'),
+      catalogExercise('88888888-8888-4888-8888-888888888888', 'Peso muerto'),
+    ]);
+
+    const firstDayIds = new Set(
+      result.days[0].exercises.map((exercise) => exercise.exerciseId),
+    );
+    expect(firstDayIds.has(result.days[1].exercises[0].exerciseId)).toBe(false);
+    expect(result.days[1].exercises[0].exerciseId).toBe(
+      '77777777-7777-4777-8777-777777777777',
+    );
+    expect(result.days[1].exercises[0].observations).toContain(
+      'Reemplazo automatico por repeticion de ejercicio',
+    );
+  });
 });
 
 function catalogExercise(id: string, name: string) {

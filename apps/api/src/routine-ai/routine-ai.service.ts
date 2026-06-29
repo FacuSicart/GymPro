@@ -117,7 +117,9 @@ export class RoutineAiService {
     }
 
     const catalog = await this.loadCatalog(dto.goal);
-    if (catalog.length < dto.exercisesPerDay) {
+    const minimumCatalogItems =
+      targetDayCount > 1 ? dto.exercisesPerDay * 2 : dto.exercisesPerDay;
+    if (catalog.length < minimumCatalogItems) {
       throw new BadRequestException(
         'Catalog has insufficient approved active exercises.',
       );
@@ -156,8 +158,9 @@ export class RoutineAiService {
         catalog.map((exercise) => exercise.id),
       );
 
-      const normalizedDraft = this.normalizeAiDraftOrders(
-        this.replaceDuplicateExercisesWithinDays(rawDraft, catalog),
+      const normalizedDraft = this.replaceInvalidExerciseRepeats(
+        this.normalizeAiDraftOrders(rawDraft),
+        catalog,
       );
 
       try {
@@ -327,6 +330,8 @@ export class RoutineAiService {
         routineStatus: 'DRAFT',
         catalogPolicy:
           'Use exclusively exercise IDs present in allowedCatalog. Do not invent exercises.',
+        exerciseVarietyPolicy:
+          'Do not repeat the same exercise inside a day or across two consecutive training days.',
         medicalPolicy:
           'Do not diagnose, treat, prescribe rehabilitation, or give medical advice. Adapt selection conservatively.',
       },
@@ -515,6 +520,7 @@ export class RoutineAiService {
       'For exerciseId, copy exactly one ID from allowedCatalog.id. Never write exercise names in exerciseId.',
       'Never invent exercises, IDs, names, URLs, diagnoses, treatments, or rehabilitation advice.',
       'Generate exactly the requested number of days and exactly the requested number of exercises per day.',
+      'Do not repeat the same exercise inside one day or across two consecutive training days.',
       'Every exercise must include sets, repetitions, restSeconds, intensity, tempo, rir, rpe, and observations.',
       'Prioritize restrictions, recurrent discomfort, safety, goal, experience, weekly balance, and variety.',
       'Return JSON only, matching the schema.',
@@ -610,6 +616,7 @@ export class RoutineAiService {
       'AI routine day order must be unique.',
     );
 
+    let previousDayExerciseIds = new Set<string>();
     for (const day of draft.days) {
       if (day.exercises.length !== input.exercisesPerDay) {
         throw new BadRequestException(
@@ -635,6 +642,14 @@ export class RoutineAiService {
         }
         dayExerciseIds.add(item.exerciseId);
       }
+      for (const exerciseId of dayExerciseIds) {
+        if (previousDayExerciseIds.has(exerciseId)) {
+          throw new BadRequestException(
+            'AI routine repeated an exercise across consecutive days.',
+          );
+        }
+      }
+      previousDayExerciseIds = dayExerciseIds;
     }
   }
 
@@ -652,27 +667,32 @@ export class RoutineAiService {
     };
   }
 
-  private replaceDuplicateExercisesWithinDays(
+  private replaceInvalidExerciseRepeats(
     draft: AiRoutineDraft,
     catalog: Awaited<ReturnType<RoutineAiService['loadCatalog']>>,
   ): AiRoutineDraft {
+    let previousDayExerciseIds = new Set<string>();
+
     return {
       ...draft,
       days: draft.days.map((day) => {
         const used = new Set<string>();
         let nextReplacementIndex = 0;
 
-        return {
+        const nextDay = {
           ...day,
           exercises: day.exercises.map((exercise) => {
-            if (!used.has(exercise.exerciseId)) {
+            if (
+              !used.has(exercise.exerciseId) &&
+              !previousDayExerciseIds.has(exercise.exerciseId)
+            ) {
               used.add(exercise.exerciseId);
               return exercise;
             }
 
             const replacement = this.nextUnusedExercise(
               catalog,
-              used,
+              new Set([...used, ...previousDayExerciseIds]),
               nextReplacementIndex,
             );
 
@@ -690,6 +710,9 @@ export class RoutineAiService {
             };
           }),
         };
+
+        previousDayExerciseIds = used;
+        return nextDay;
       }),
     };
   }
@@ -713,7 +736,7 @@ export class RoutineAiService {
 
   private appendReviewObservation(observations: string) {
     const note =
-      'Reemplazo automatico por duplicacion del mismo dia; revisar parametros.';
+      'Reemplazo automatico por repeticion de ejercicio; revisar parametros.';
 
     return observations.includes(note)
       ? observations
