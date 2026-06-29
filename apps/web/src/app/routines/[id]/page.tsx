@@ -205,7 +205,20 @@ export default function RoutineDetailPage() {
     };
   }, [catalog]);
 
-  const catalogById = useMemo(() => new Map(catalog.map((exercise) => [exercise.id, exercise])), [catalog]);
+  const catalogById = useMemo(() => {
+    const exercises = new Map<string, Exercise | RoutineExercise['exercise']>();
+    for (const exercise of catalog) {
+      exercises.set(exercise.id, exercise);
+    }
+    for (const day of routine?.days ?? []) {
+      for (const item of day.exercises) {
+        if (!exercises.has(item.exerciseId)) {
+          exercises.set(item.exerciseId, item.exercise);
+        }
+      }
+    }
+    return exercises;
+  }, [catalog, routine]);
 
   async function load() {
     setLoading(true);

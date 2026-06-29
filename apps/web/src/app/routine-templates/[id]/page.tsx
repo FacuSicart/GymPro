@@ -184,7 +184,20 @@ export default function RoutineTemplateDetailPage() {
     };
   }, [catalog]);
 
-  const catalogById = useMemo(() => new Map(catalog.map((exercise) => [exercise.id, exercise])), [catalog]);
+  const catalogById = useMemo(() => {
+    const exercises = new Map<string, Exercise | RoutineTemplateExercise['exercise']>();
+    for (const exercise of catalog) {
+      exercises.set(exercise.id, exercise);
+    }
+    for (const day of template?.days ?? []) {
+      for (const item of day.exercises) {
+        if (!exercises.has(item.exerciseId)) {
+          exercises.set(item.exerciseId, item.exercise);
+        }
+      }
+    }
+    return exercises;
+  }, [catalog, template]);
 
   async function load() {
     setLoading(true);
