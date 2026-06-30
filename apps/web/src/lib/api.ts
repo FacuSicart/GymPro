@@ -87,6 +87,14 @@ export type ExerciseApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type ExerciseOperationalStatus = 'ACTIVE' | 'INACTIVE';
 export type ExerciseGoal = 'STRENGTH' | 'MOBILITY' | 'ENDURANCE' | 'POWER' | 'CORE';
 
+export type ExerciseImportResult = {
+  imported: boolean;
+  totalRows: number;
+  created: number;
+  updated: number;
+  errors: Array<{ row: number; errors: string[] }>;
+};
+
 export type Exercise = {
   id: string;
   name: string;
@@ -606,7 +614,7 @@ export async function apiFetch<T>(
   const token = getStoredAccessToken();
   const headers = new Headers(options.headers);
 
-  if (!headers.has('Content-Type')) {
+  if (!(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -699,3 +707,4 @@ export async function logout() {
     clearStoredAccessToken();
   }
 }
+

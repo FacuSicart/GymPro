@@ -7,8 +7,11 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -43,13 +46,17 @@ export class ExercisesController {
   }
 
   @Get('my-proposals')
-  @ApiOkResponse({ description: 'Exercise proposals created by the current user.' })
+  @ApiOkResponse({
+    description: 'Exercise proposals created by the current user.',
+  })
   listMyProposals(@CurrentUser() user: User) {
     return this.exercisesService.listMyProposals(user);
   }
 
   @Get('coverage')
-  @ApiOkResponse({ description: 'Coverage report for approved and active exercises.' })
+  @ApiOkResponse({
+    description: 'Coverage report for approved and active exercises.',
+  })
   getCoverage(@CurrentUser() user: User) {
     return this.exercisesService.getCoverage(user);
   }
@@ -60,9 +67,28 @@ export class ExercisesController {
     return this.exercisesService.createExercise(user, dto);
   }
 
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOkResponse({ description: 'Admin bulk import from an Excel file.' })
+  importExercises(
+    @CurrentUser() user: User,
+    @UploadedFile()
+    file?: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
+  ) {
+    return this.exercisesService.importExercisesFromExcel(user, file);
+  }
+
   @Get(':id')
   @ApiOkResponse({ description: 'Exercise detail.' })
-  getExercise(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+  getExercise(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.exercisesService.getExercise(user, id);
   }
 
@@ -78,7 +104,10 @@ export class ExercisesController {
 
   @Patch(':id/approve')
   @ApiOkResponse({ description: 'Exercise approved and activated by admin.' })
-  approveExercise(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+  approveExercise(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.exercisesService.approveExercise(user, id);
   }
 
@@ -94,7 +123,10 @@ export class ExercisesController {
 
   @Patch(':id/activate')
   @ApiOkResponse({ description: 'Exercise activated by admin.' })
-  activateExercise(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+  activateExercise(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.exercisesService.setOperationalStatus(
       user,
       id,
@@ -104,7 +136,10 @@ export class ExercisesController {
 
   @Patch(':id/deactivate')
   @ApiOkResponse({ description: 'Exercise deactivated by admin.' })
-  deactivateExercise(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+  deactivateExercise(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.exercisesService.setOperationalStatus(
       user,
       id,

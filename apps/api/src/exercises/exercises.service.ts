@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as XLSX from 'xlsx';
 import {
   ExerciseApprovalStatus,
   ExerciseGoal,
@@ -20,7 +21,30 @@ import { UpdateExerciseDto } from './dto/update-exercise.dto';
 import { toPublicExercise, toPublicExercises } from './exercise-presenter';
 
 const textSearchMode = 'insensitive' satisfies Prisma.QueryMode;
-const expectedExerciseGoals = ['STRENGTH', 'MOBILITY', 'ENDURANCE', 'POWER', 'CORE'];
+const expectedExerciseGoals = [
+  'STRENGTH',
+  'MOBILITY',
+  'ENDURANCE',
+  'POWER',
+  'CORE',
+];
+const maxImportRows = 500;
+
+type UploadedExerciseFile = {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+};
+
+type ImportableExerciseField = keyof CreateExerciseDto;
+
+type ParsedImportRow = CreateExerciseDto & { sourceRow: number };
+
+type ImportRowError = {
+  row: number;
+  errors: string[];
+};
 
 type CoverageCountRow = {
   value: string;
@@ -56,19 +80,14 @@ export class ExercisesService {
   async getCoverage(user: User) {
     this.assertAdmin(user);
 
-    const [
-      muscleGroups,
-      goals,
-      equipment,
-      equipmentTypes,
-      movementPatterns,
-    ] = await Promise.all([
-      this.groupApprovedActiveBy('primary_muscle_group'),
-      this.buildEnumArrayCoverage(expectedExerciseGoals),
-      this.groupApprovedActiveBy('equipment_needed'),
-      this.groupApprovedActiveBy('equipment_type'),
-      this.groupApprovedActiveBy('movement_pattern'),
-    ]);
+    const [muscleGroups, goals, equipment, equipmentTypes, movementPatterns] =
+      await Promise.all([
+        this.groupApprovedActiveBy('primary_muscle_group'),
+        this.buildEnumArrayCoverage(expectedExerciseGoals),
+        this.groupApprovedActiveBy('equipment_needed'),
+        this.groupApprovedActiveBy('equipment_type'),
+        this.groupApprovedActiveBy('movement_pattern'),
+      ]);
 
     return {
       minimumPerBucket: 2,
@@ -185,6 +204,80 @@ export class ExercisesService {
     });
 
     return toPublicExercise(updatedExercise);
+  }
+
+  async importExercisesFromExcel(user: User, file?: UploadedExerciseFile) {
+    this.assertAdmin(user);
+
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Excel file is required.');
+    }
+
+    if (!this.isExcelFile(file)) {
+      throw new BadRequestException(
+        'Only .xlsx, .xls or .csv files are supported.',
+      );
+    }
+
+    const parsed = this.parseExerciseWorkbook(file.buffer);
+
+    if (parsed.errors.length) {
+      return {
+        imported: false,
+        totalRows: parsed.totalRows,
+        created: 0,
+        updated: 0,
+        errors: parsed.errors,
+      };
+    }
+
+    let created = 0;
+    let updated = 0;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const row of parsed.rows) {
+        const existingExercise = await tx.exercise.findFirst({
+          where: { name: { equals: row.name, mode: textSearchMode } },
+          select: { id: true },
+        });
+        const data = this.buildCreateData(row);
+
+        if (existingExercise) {
+          await tx.exercise.update({
+            where: { id: existingExercise.id },
+            data: {
+              ...data,
+              approvalStatus: ExerciseApprovalStatus.APPROVED,
+              operationalStatus: ExerciseOperationalStatus.ACTIVE,
+              reviewedByUserId: user.id,
+              reviewedAt: new Date(),
+              rejectionReason: null,
+            },
+          });
+          updated += 1;
+        } else {
+          await tx.exercise.create({
+            data: {
+              ...data,
+              approvalStatus: ExerciseApprovalStatus.APPROVED,
+              operationalStatus: ExerciseOperationalStatus.ACTIVE,
+              createdByUserId: user.id,
+              reviewedByUserId: user.id,
+              reviewedAt: new Date(),
+            },
+          });
+          created += 1;
+        }
+      }
+    });
+
+    return {
+      imported: true,
+      totalRows: parsed.totalRows,
+      created,
+      updated,
+      errors: [],
+    };
   }
 
   private buildListWhere(
@@ -383,6 +476,367 @@ export class ExercisesService {
     }
   }
 
+  private isExcelFile(file: UploadedExerciseFile) {
+    const name = file.originalname.toLowerCase();
+    return (
+      name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')
+    );
+  }
+
+  private parseExerciseWorkbook(buffer: Buffer): {
+    totalRows: number;
+    rows: ParsedImportRow[];
+    errors: ImportRowError[];
+  } {
+    let workbook: XLSX.WorkBook;
+
+    try {
+      workbook = XLSX.read(buffer, { type: 'buffer' });
+    } catch {
+      throw new BadRequestException('The uploaded file could not be read.');
+    }
+
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      throw new BadRequestException('The uploaded file has no sheets.');
+    }
+
+    const sheet = workbook.Sheets[firstSheetName];
+    const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      defval: '',
+      blankrows: false,
+    });
+    const [headerRow, ...bodyRows] = rawRows;
+
+    if (!headerRow?.length) {
+      throw new BadRequestException('The uploaded file has no header row.');
+    }
+
+    const headerMap = this.buildImportHeaderMap(headerRow);
+    const rows: ParsedImportRow[] = [];
+    const errors: ImportRowError[] = [];
+    const seenNames = new Set<string>();
+
+    const missingRequiredHeaders = this.requiredImportFields().filter(
+      (field) => headerMap[field] === undefined,
+    );
+
+    if (missingRequiredHeaders.length) {
+      errors.push({
+        row: 1,
+        errors: missingRequiredHeaders.map(
+          (field) => `Missing required column: ${field}.`,
+        ),
+      });
+    }
+
+    const nonEmptyRows = bodyRows.filter((row) =>
+      row.some((cell) => this.importCellToString(cell).trim()),
+    );
+
+    if (nonEmptyRows.length > maxImportRows) {
+      errors.push({
+        row: 1,
+        errors: [`The import supports up to ${maxImportRows} rows per file.`],
+      });
+    }
+
+    for (const [index, rawRow] of bodyRows.entries()) {
+      const sourceRow = index + 2;
+      if (!rawRow.some((cell) => this.importCellToString(cell).trim())) {
+        continue;
+      }
+
+      const parsedRow = this.parseExerciseImportRow(
+        rawRow,
+        headerMap,
+        sourceRow,
+      );
+      const rowErrors = this.validateExerciseImportRow(parsedRow);
+      const normalizedName = parsedRow.name.trim().toLowerCase();
+
+      if (normalizedName) {
+        if (seenNames.has(normalizedName)) {
+          rowErrors.push('Duplicated exercise name in this file.');
+        }
+        seenNames.add(normalizedName);
+      }
+
+      if (rowErrors.length) {
+        errors.push({ row: sourceRow, errors: rowErrors });
+      } else {
+        rows.push(parsedRow);
+      }
+    }
+
+    if (!rows.length && !errors.length) {
+      errors.push({
+        row: 1,
+        errors: ['The uploaded file has no exercise rows.'],
+      });
+    }
+
+    return { totalRows: nonEmptyRows.length, rows, errors };
+  }
+
+  private buildImportHeaderMap(headerRow: unknown[]) {
+    const aliases = this.importColumnAliases();
+    const headerMap: Partial<Record<ImportableExerciseField, number>> = {};
+
+    headerRow.forEach((header, index) => {
+      const field = aliases.get(this.normalizeImportHeader(header));
+      if (field && headerMap[field] === undefined) {
+        headerMap[field] = index;
+      }
+    });
+
+    return headerMap;
+  }
+
+  private parseExerciseImportRow(
+    rawRow: unknown[],
+    headerMap: Partial<Record<ImportableExerciseField, number>>,
+    sourceRow: number,
+  ): ParsedImportRow {
+    const cell = (field: ImportableExerciseField) => {
+      const index = headerMap[field];
+      return index === undefined
+        ? ''
+        : this.importCellToString(rawRow[index]).trim();
+    };
+
+    return {
+      sourceRow,
+      name: cell('name'),
+      description: cell('description'),
+      primaryMuscleGroup: cell('primaryMuscleGroup'),
+      secondaryMuscleGroups: this.parseImportList(
+        cell('secondaryMuscleGroups'),
+      ),
+      movementPattern: cell('movementPattern'),
+      equipmentNeeded: cell('equipmentNeeded'),
+      equipmentType: cell('equipmentType') || undefined,
+      goals: this.parseImportGoals(cell('goals')),
+      technicalInstructions: cell('technicalInstructions'),
+      commonMistakes: cell('commonMistakes') || undefined,
+      contraindications: cell('contraindications') || undefined,
+      videoUrl: cell('videoUrl') || undefined,
+      imageUrl: cell('imageUrl') || undefined,
+    };
+  }
+
+  private validateExerciseImportRow(row: ParsedImportRow) {
+    const errors: string[] = [];
+
+    this.requireImportText(errors, row.name, 'name', 120);
+    this.requireImportText(errors, row.description, 'description', 1200);
+    this.requireImportText(
+      errors,
+      row.primaryMuscleGroup,
+      'primaryMuscleGroup',
+      80,
+    );
+    this.requireImportText(errors, row.movementPattern, 'movementPattern', 80);
+    this.requireImportText(errors, row.equipmentNeeded, 'equipmentNeeded', 120);
+    this.requireImportText(
+      errors,
+      row.technicalInstructions,
+      'technicalInstructions',
+      1600,
+    );
+
+    if (!row.goals.length) {
+      errors.push('goals must include at least one valid value.');
+    }
+
+    if (row.secondaryMuscleGroups?.some((value) => value.length > 80)) {
+      errors.push(
+        'secondaryMuscleGroups items must be 80 characters or fewer.',
+      );
+    }
+
+    this.validateOptionalImportText(
+      errors,
+      row.commonMistakes,
+      'commonMistakes',
+      1200,
+    );
+    this.validateOptionalImportText(
+      errors,
+      row.contraindications,
+      'contraindications',
+      1200,
+    );
+    this.validateOptionalImportUrl(errors, row.videoUrl, 'videoUrl');
+    this.validateOptionalImportUrl(errors, row.imageUrl, 'imageUrl');
+
+    return errors;
+  }
+
+  private requireImportText(
+    errors: string[],
+    value: string | undefined,
+    field: string,
+    maxLength: number,
+  ) {
+    if (!value?.trim()) {
+      errors.push(`${field} is required.`);
+      return;
+    }
+
+    if (value.length > maxLength) {
+      errors.push(`${field} must be ${maxLength} characters or fewer.`);
+    }
+  }
+
+  private validateOptionalImportText(
+    errors: string[],
+    value: string | undefined,
+    field: string,
+    maxLength: number,
+  ) {
+    if (value && value.length > maxLength) {
+      errors.push(`${field} must be ${maxLength} characters or fewer.`);
+    }
+  }
+
+  private validateOptionalImportUrl(
+    errors: string[],
+    value: string | undefined,
+    field: string,
+  ) {
+    if (!value) {
+      return;
+    }
+
+    try {
+      const url = new URL(value);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        errors.push(`${field} must be an http or https URL.`);
+      }
+    } catch {
+      errors.push(`${field} must be a valid URL.`);
+    }
+  }
+
+  private parseImportList(value: string) {
+    return value
+      .split(/[;,\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  private parseImportGoals(value: string): ExerciseGoal[] {
+    const aliases = new Map<string, ExerciseGoal>([
+      ['strength', ExerciseGoal.STRENGTH],
+      ['fuerza', ExerciseGoal.STRENGTH],
+      ['mobility', ExerciseGoal.MOBILITY],
+      ['movilidad', ExerciseGoal.MOBILITY],
+      ['endurance', ExerciseGoal.ENDURANCE],
+      ['resistencia', ExerciseGoal.ENDURANCE],
+      ['cardio', ExerciseGoal.ENDURANCE],
+      ['power', ExerciseGoal.POWER],
+      ['potencia', ExerciseGoal.POWER],
+      ['core', ExerciseGoal.CORE],
+    ]);
+
+    const goals = this.parseImportList(value).map((goal) => {
+      const normalized = this.normalizeImportHeader(goal);
+      return (
+        aliases.get(normalized) ??
+        ExerciseGoal[goal.trim().toUpperCase() as keyof typeof ExerciseGoal]
+      );
+    });
+
+    return this.normalizeEnumList(goals.filter(Boolean));
+  }
+
+  private requiredImportFields(): ImportableExerciseField[] {
+    return [
+      'name',
+      'description',
+      'primaryMuscleGroup',
+      'movementPattern',
+      'equipmentNeeded',
+      'goals',
+      'technicalInstructions',
+    ];
+  }
+
+  private importColumnAliases() {
+    const entries: Array<[string, ImportableExerciseField]> = [
+      ['name', 'name'],
+      ['nombre', 'name'],
+      ['ejercicio', 'name'],
+      ['exercise', 'name'],
+      ['description', 'description'],
+      ['descripcion', 'description'],
+      ['primarymusclegroup', 'primaryMuscleGroup'],
+      ['grupomuscularprincipal', 'primaryMuscleGroup'],
+      ['grupoprincipal', 'primaryMuscleGroup'],
+      ['musculoprincipal', 'primaryMuscleGroup'],
+      ['secondarymusclegroups', 'secondaryMuscleGroups'],
+      ['gruposmuscularessecundarios', 'secondaryMuscleGroups'],
+      ['secundarios', 'secondaryMuscleGroups'],
+      ['movementpattern', 'movementPattern'],
+      ['patrondemovimiento', 'movementPattern'],
+      ['patronmovimiento', 'movementPattern'],
+      ['patron', 'movementPattern'],
+      ['equipmentneeded', 'equipmentNeeded'],
+      ['equipamiento', 'equipmentNeeded'],
+      ['equipamientonecesario', 'equipmentNeeded'],
+      ['equipmenttype', 'equipmentType'],
+      ['tipoequipamiento', 'equipmentType'],
+      ['goals', 'goals'],
+      ['objetivos', 'goals'],
+      ['objetivo', 'goals'],
+      ['technicalinstructions', 'technicalInstructions'],
+      ['instruccionestecnicas', 'technicalInstructions'],
+      ['tecnica', 'technicalInstructions'],
+      ['commonmistakes', 'commonMistakes'],
+      ['errorescomunes', 'commonMistakes'],
+      ['contraindications', 'contraindications'],
+      ['contraindicaciones', 'contraindications'],
+      ['videourl', 'videoUrl'],
+      ['video', 'videoUrl'],
+      ['urldevideo', 'videoUrl'],
+      ['imageurl', 'imageUrl'],
+      ['imagen', 'imageUrl'],
+      ['urldeimagen', 'imageUrl'],
+    ];
+
+    return new Map(entries);
+  }
+
+  private importCellToString(value: unknown) {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
+      return String(value);
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    return '';
+  }
+  private normalizeImportHeader(value: unknown) {
+    return this.importCellToString(value)
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
   private async groupApprovedActiveBy(
     field:
       | 'primary_muscle_group'
@@ -401,7 +855,9 @@ export class ExercisesService {
       `,
     );
 
-    return rows.map((row) => this.toCoverageBucket(row.value, Number(row.count)));
+    return rows.map((row) =>
+      this.toCoverageBucket(row.value, Number(row.count)),
+    );
   }
 
   private normalizeTextList(values?: string[]) {
@@ -435,11 +891,7 @@ export class ExercisesService {
       value,
       count,
       status:
-        count === 0
-          ? 'NO_COVERAGE'
-          : count < 2
-            ? 'LOW_COVERAGE'
-            : 'SUFFICIENT',
+        count === 0 ? 'NO_COVERAGE' : count < 2 ? 'LOW_COVERAGE' : 'SUFFICIENT',
     };
   }
 

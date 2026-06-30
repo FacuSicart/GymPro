@@ -65,6 +65,7 @@ describe('ExercisesService', () => {
       update: jest.fn(),
       groupBy: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   beforeEach(() => {
@@ -196,5 +197,88 @@ describe('ExercisesService', () => {
         ExerciseOperationalStatus.INACTIVE,
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('imports valid exercise files as an admin migration', async () => {
+    const tx = {
+      exercise: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ id: 'exercise-existing' }),
+        create: jest.fn().mockResolvedValue(exercise),
+        update: jest.fn().mockResolvedValue(exercise),
+      },
+    };
+    prisma.$transaction.mockImplementation(
+      (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+    const service = new ExercisesService(prisma as never);
+    const csv = [
+      'nombre,descripcion,grupo muscular principal,patron de movimiento,equipamiento,objetivos,instrucciones tecnicas',
+      'Press banca,Empuje horizontal,Pecho,Empuje,Barra,Fuerza,Controlar bajada',
+      'Sentadilla goblet,Tren inferior,Piernas,Sentadilla,Mancuerna,"Fuerza, Core",Mantener torso estable',
+    ].join('\n');
+
+    await expect(
+      service.importExercisesFromExcel(admin as never, {
+        buffer: Buffer.from(csv),
+        originalname: 'catalogo.csv',
+        mimetype: 'text/csv',
+        size: csv.length,
+      }),
+    ).resolves.toEqual({
+      imported: true,
+      totalRows: 2,
+      created: 1,
+      updated: 1,
+      errors: [],
+    });
+
+    expect(tx.exercise.create).toHaveBeenCalledWith({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: expect.objectContaining({
+        name: 'Press banca',
+        approvalStatus: ExerciseApprovalStatus.APPROVED,
+        operationalStatus: ExerciseOperationalStatus.ACTIVE,
+        createdByUserId: admin.id,
+        reviewedByUserId: admin.id,
+      }),
+    });
+    expect(tx.exercise.update).toHaveBeenCalledWith({
+      where: { id: 'exercise-existing' },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: expect.objectContaining({
+        name: 'Sentadilla goblet',
+        goals: [ExerciseGoal.STRENGTH, ExerciseGoal.CORE],
+        approvalStatus: ExerciseApprovalStatus.APPROVED,
+        operationalStatus: ExerciseOperationalStatus.ACTIVE,
+        reviewedByUserId: admin.id,
+      }),
+    });
+  });
+
+  it('rejects invalid exercise import rows without writing data', async () => {
+    const service = new ExercisesService(prisma as never);
+    const csv = [
+      'nombre,descripcion,grupo muscular principal,patron de movimiento,equipamiento,objetivos,instrucciones tecnicas',
+      ',Empuje horizontal,Pecho,Empuje,Barra,Fuerza,Controlar bajada',
+    ].join('\n');
+
+    await expect(
+      service.importExercisesFromExcel(admin as never, {
+        buffer: Buffer.from(csv),
+        originalname: 'catalogo.csv',
+        mimetype: 'text/csv',
+        size: csv.length,
+      }),
+    ).resolves.toEqual({
+      imported: false,
+      totalRows: 1,
+      created: 0,
+      updated: 0,
+      errors: [{ row: 2, errors: ['name is required.'] }],
+    });
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

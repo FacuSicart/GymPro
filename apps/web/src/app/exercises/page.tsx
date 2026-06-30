@@ -8,6 +8,7 @@ import {
   Exercise,
   ExerciseApprovalStatus,
   ExerciseGoal,
+  ExerciseImportResult,
   ExerciseOperationalStatus,
   LocalUser,
 } from '@/lib/api';
@@ -55,7 +56,7 @@ function Icon({
   type,
   className = 'h-4 w-4',
 }: {
-  type: 'search' | 'filter' | 'plus' | 'chevron' | 'eye' | 'pencil' | 'check' | 'x';
+  type: 'search' | 'filter' | 'plus' | 'chevron' | 'eye' | 'pencil' | 'check' | 'x' | 'upload';
   className?: string;
 }) {
   return (
@@ -68,6 +69,7 @@ function Icon({
       {type === 'pencil' ? <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /> : null}
       {type === 'check' ? <path d="m5 12 4 4L19 6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /> : null}
       {type === 'x' ? <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeLinecap="round" strokeWidth="2" /> : null}
+      {type === 'upload' ? <><path d="M12 16V4m0 0 4 4m-4-4-4 4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" /></> : null}
     </svg>
   );
 }
@@ -219,6 +221,9 @@ export default function ExercisesPage() {
   } | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ExerciseImportResult | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -291,6 +296,44 @@ export default function ExercisesPage() {
     setFilters((current) => ({ ...current, [field]: value }));
   }
 
+
+  async function onImportExercises() {
+    if (!importFile) {
+      setError('Selecciona un archivo Excel para importar.');
+      return;
+    }
+
+    setImporting(true);
+    setError('');
+    setImportResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+      const result = await apiFetch<ExerciseImportResult>('/exercises/import', {
+        method: 'POST',
+        body: formData,
+      });
+      setImportResult(result);
+
+      if (result.imported) {
+        const [catalogRows, proposalRows] = await Promise.all([
+          fetchAllExercises(filters),
+          loadProposals(),
+        ]);
+        setExercises(catalogRows);
+        if (!buildQuery(filters)) {
+          setAllExercises(catalogRows);
+        }
+        setProposals(proposalRows);
+        setImportFile(null);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No se pudo importar el archivo.');
+    } finally {
+      setImporting(false);
+    }
+  }
   async function onSearch() {
     setShowMine(false);
     setPage(1);
@@ -412,6 +455,58 @@ export default function ExercisesPage() {
         </nav>
       </header>
 
+
+      {isAdmin && !showMine ? (
+        <section className="rounded-[14px] border border-[#dfe5e1] bg-white p-6 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <h2 className="text-lg font-black text-[#0f172a]">Importar ejercicios desde Excel</h2>
+              <p className="mt-2 text-sm leading-6 text-[#64748b]">
+                Usa la primera hoja. Columnas requeridas: nombre, descripcion, grupo muscular principal, patron de movimiento, equipamiento, objetivos e instrucciones tecnicas.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+              <input
+                accept=".xlsx,.xls,.csv"
+                className="h-11 min-w-0 rounded-[8px] border border-[#dfe5e1] bg-white px-3 py-2 text-sm text-[#334155] file:mr-3 file:rounded-[6px] file:border-0 file:bg-[#eef7f1] file:px-3 file:py-1.5 file:text-sm file:font-black file:text-[#087a3d]"
+                onChange={(event) => {
+                  setImportFile(event.target.files?.[0] ?? null);
+                  setImportResult(null);
+                }}
+                type="file"
+              />
+              <button
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-[#0f172a] px-5 text-sm font-black text-white transition hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!importFile || importing}
+                onClick={onImportExercises}
+                type="button"
+              >
+                <Icon type="upload" />
+                {importing ? 'Importando...' : 'Importar'}
+              </button>
+            </div>
+          </div>
+
+          {importResult ? (
+            <div className={`mt-5 rounded-[10px] border px-4 py-3 text-sm ${importResult.imported ? 'border-[#b8dec7] bg-[#f0fbf4] text-[#087a3d]' : 'border-[#f3c5c1] bg-[#fff7f7] text-[#b3261e]'}`}>
+              <p className="font-black">
+                {importResult.imported
+                  ? `Importacion completada: ${importResult.created} creados, ${importResult.updated} actualizados.`
+                  : `No se importo nada. Corregi ${importResult.errors.length} fila(s) y volve a subir el archivo.`}
+              </p>
+              {importResult.errors.length ? (
+                <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto">
+                  {importResult.errors.slice(0, 20).map((rowError) => (
+                    <li key={rowError.row}>
+                      Fila {rowError.row}: {rowError.errors.join(' ')}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
       {!showMine ? (
         <section className="rounded-[14px] border border-[#dfe5e1] bg-white p-6 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -788,3 +883,4 @@ export default function ExercisesPage() {
     </div>
   );
 }
+
